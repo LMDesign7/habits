@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Habits">
+<meta name="theme-color" content="#0a0a0a">
+<title>Habits</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060608;
+    --surface: #111115;
+    --surface-2: #18181e;
+    --border: #1f1f28;
+    --text: #ededf0;
+    --text-dim: #55555e;
+    --text-mid: #8e8e9a;
+    --accent: #b8ff57;
+    --accent-soft: rgba(184, 255, 87, 0.07);
+    --accent-glow: rgba(184, 255, 87, 0.20);
+    --red: #ff6b6b;
+    --radius: 18px;
+    --safe-top: env(safe-area-inset-top, 20px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Outfit', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    overflow-x: hidden;
+    padding-top: var(--safe-top);
+    padding-bottom: calc(var(--safe-bottom) + 80px);
+  }
+
+  /* ─── Header ─── */
+  .header {
+    padding: 20px 24px 0;
+  }
+
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .brand {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 400;
+    color: var(--text-dim);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  .settings-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .settings-btn:active { transform: scale(0.92); }
+
+  .date-main {
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+
+  .date-secondary {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+    margin-top: 6px;
+  }
+
+  /* ─── Week nav ─── */
+  .week-nav {
+    display: flex;
+    gap: 4px;
+    padding: 20px 20px 12px;
+  }
+
+  .day-pill {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 0 12px;
+    border-radius: 14px;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+
+  .day-pill .d-label {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .day-pill .d-num {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-mid);
+  }
+
+  .day-pill .d-indicator {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .day-pill.active {
+    background: var(--accent-soft);
+    border-color: rgba(184, 255, 87, 0.15);
+  }
+  .day-pill.active .d-label { color: var(--accent); }
+  .day-pill.active .d-num { color: var(--accent); font-weight: 600; }
+
+  .day-pill.has-data .d-indicator {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent-glow);
+  }
+
+  /* ─── Progress ─── */
+  .progress-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 24px 20px;
+  }
+
+  .ring-wrap {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    flex-shrink: 0;
+  }
+
+  .ring-svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--surface-2); stroke-width: 5; }
+  .ring-fill {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 0 8px var(--accent-glow));
+  }
+
+  .ring-num {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .progress-info { flex: 1; }
+
+  .progress-label {
+    font-size: 14px;
+    color: var(--text-mid);
+    font-weight: 400;
+  }
+
+  .progress-track {
+    width: 100%;
+    height: 3px;
+    background: var(--surface-2);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #d4ff85);
+    border-radius: 2px;
+    transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  /* ─── Habits ─── */
+  .habits-list {
+    padding: 0 16px;
+  }
+
+  .habit-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    margin-bottom: 2px;
+    border-radius: var(--radius);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.25s;
+    -webkit-user-select: none;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: slideIn 0.35s forwards;
+  }
+
+  @keyframes slideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .habit-item:active { transform: scale(0.97); }
+
+  .habit-item.done {
+    background: var(--accent-soft);
+  }
+
+  .h-emoji {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .habit-item.done .h-emoji {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px var(--accent-glow);
+    transform: scale(1.05);
+  }
+
+  .h-body { flex: 1; min-width: 0; }
+
+  .h-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    transition: color 0.25s;
+  }
+
+  .habit-item.done .h-name { color: var(--accent); }
+
+  .h-toggle {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .habit-item.done .h-toggle {
+    border-color: var(--accent);
+    background: var(--accent);
+    transform: scale(1.1);
+  }
+
+  .h-check {
+    opacity: 0;
+    transform: scale(0.3) rotate(-20deg);
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .habit-item.done .h-check {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+
+  /* Ripple */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.12;
+    transform: scale(0);
+    animation: ripple 0.5s ease-out;
+    pointer-events: none;
+  }
+  @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+  /* ─── Sync bar ─── */
+  .sync-bar {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 16px);
+    left: 20px;
+    right: 20px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    z-index: 100;
+    transform: translateY(120px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sync-bar.visible { transform: translateY(0); opacity: 1; }
+  .sync-bar.success { border-color: rgba(184,255,87,0.25); color: var(--accent); }
+  .sync-bar.error { border-color: rgba(255,107,107,0.25); color: var(--red); }
+
+  .sync-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .sync-bar.success .sync-dot, .sync-bar.error .sync-dot { animation: none; }
+
+  /* ─── Modal ─── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    width: 100%; max-width: 500px; max-height: 88dvh;
+    background: var(--surface);
+    border-radius: 28px 28px 0 0;
+    padding: 20px 24px calc(var(--safe-bottom) + 24px);
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+  .overlay.open .modal { transform: translateY(0); }
+
+  .modal-bar {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: var(--border); margin: 0 auto 24px;
+  }
+
+  .modal h2 {
+    font-size: 20px; font-weight: 600; margin-bottom: 8px;
+  }
+
+  .modal-desc {
+    font-size: 13px; color: var(--text-dim); line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .field-group { margin-bottom: 20px; }
+
+  .field-label {
+    display: block;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .field-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input::placeholder { color: #333340; }
+
+  .field-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .field-hint code {
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-size: 10px;
+  }
+
+  .save-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 16px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+  }
+  .save-btn:active { transform: scale(0.97); opacity: 0.85; }
+
+  /* ─── Instructions ─── */
+  .instructions {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .instructions summary {
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-mid);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .instructions summary::-webkit-details-marker { display: none; }
+  .instructions summary::before { content: '›'; font-size: 16px; transition: transform 0.2s; display: inline-block; }
+  .instructions[open] summary::before { transform: rotate(90deg); }
+
+  .instructions ol {
+    margin-top: 12px;
+    padding-left: 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 2;
+  }
+
+  .instructions a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div class="brand">habits</div>
+    <button class="settings-btn" onclick="openSettings()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+    </button>
+  </div>
+  <div class="date-main" id="dateMain"></div>
+  <div class="date-secondary" id="dateSec"></div>
+</div>
+
+<div class="week-nav" id="weekNav"></div>
+
+<div class="progress-section">
+  <div class="ring-wrap">
+    <svg class="ring-svg" width="68" height="68" viewBox="0 0 68 68">
+      <circle class="ring-bg" cx="34" cy="34" r="28"/>
+      <circle class="ring-fill" id="ringFill" cx="34" cy="34" r="28"
+        stroke-dasharray="175.9" stroke-dashoffset="175.9"/>
+    </svg>
+    <div class="ring-num" id="ringNum">0</div>
+  </div>
+  <div class="progress-info">
+    <div class="progress-label" id="progressLabel">0 sur 10</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<div class="habits-list" id="habitsList"></div>
+
+<div class="sync-bar" id="syncBar">
+  <div class="sync-dot"></div>
+  <span id="syncText">Synchronisation...</span>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-bar"></div>
+    <h2>Configuration</h2>
+    <p class="modal-desc">Connecte ton Google Sheet pour synchroniser tes habitudes automatiquement.</p>
+
+    <details class="instructions">
+      <summary>Comment configurer ?</summary>
+      <ol>
+        <li>Va sur <a href="https://script.google.com" target="_blank">script.google.com</a></li>
+        <li>Crée un nouveau projet</li>
+        <li>Colle le code du fichier <strong>google-apps-script.js</strong></li>
+        <li><strong>Déployer</strong> → <strong>Nouveau déploiement</strong></li>
+        <li>Type : <strong>Application Web</strong></li>
+        <li>Exécuter en tant que : <strong>Moi</strong></li>
+        <li>Accès : <strong>Tout le monde</strong></li>
+        <li>Copie l'URL et colle-la ci-dessous</li>
+      </ol>
+    </details>
+
+    <div class="field-group">
+      <label class="field-label">URL du Apps Script</label>
+      <input class="field-input" type="url" id="cfgUrl" placeholder="https://script.google.com/macros/s/..."/>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">ID du Google Sheet</label>
+      <input class="field-input" type="text" id="cfgId" placeholder="1BxiMVs0XRA5nFMdKvBd..."/>
+      <div class="field-hint">Dans l'URL de ton sheet :<br><code>docs.google.com/spreadsheets/d/<strong>ID_ICI</strong>/edit</code></div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Nom de l'onglet</label>
+      <input class="field-input" type="text" id="cfgTab" placeholder="Habitudes"/>
+      <div class="field-hint">Le nom exact de l'onglet en bas du sheet. Par défaut le même que le titre visible.</div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Token secret 🔒</label>
+      <input class="field-input" type="password" id="cfgToken" placeholder="Ton mot de passe secret"/>
+      <div class="field-hint">Ce token doit être identique à celui défini dans ton Google Apps Script (variable <code>SECRET_TOKEN</code>). Sans le bon token, personne ne peut modifier ton Sheet.</div>
+    </div>
+
+    <button class="save-btn" onclick="saveSettings()">Enregistrer</button>
+  </div>
+</div>
+
+<script>
+  // ═══════════════════════════════════════════════
+  // HABITS — matches your Sheet columns C → L
+  // Sheet structure:
+  //   Row 1: "Habitudes" (title)
+  //   Row 2: Jour | Date | Réveil 6h30 | Dormir 22h | ...  (headers)
+  //   Row 3: Average | 62,06% | 60,42% | ...               (averages)
+  //   Row 4+: samedi | 14.02.26 | 1 | 0 | ...              (data)
+  //
+  //   Col A = Jour, Col B = Date (dd.mm.yy), Cols C-L = habits
+  // ═══════════════════════════════════════════════
+
+  const HABITS = [
+    { id: 'reveil',     name: 'Réveil 6h30',      icon: '⏰', col: 'Réveil 6h30' },
+    { id: 'dormir',     name: 'Dormir 22h',        icon: '🌙', col: 'Dormir 22h' },
+    { id: 'nofastfood', name: 'No fast food',      icon: '🥗', col: 'No fast food' },
+    { id: 'sport',      name: 'Sport',             icon: '💪', col: 'Sport' },
+    { id: 'travail',    name: 'Travail / Projets', icon: '💼', col: 'Travail / Projets' },
+    { id: 'lecture',    name: 'Lecture',            icon: '📖', col: 'Lecture' },
+    { id: 'tracking',   name: 'Tracking',          icon: '📊', col: 'Tracking' },
+    { id: 'eau',        name: "1,5L d'eau",        icon: '💧', col: "1,5L d'eau" },
+    { id: 'skincare',   name: 'Skincare',          icon: '✨', col: 'Skincare' },
+    { id: 'airdrop',    name: 'Airdrop',           icon: '🪂', col: 'Airdrop' },
+  ];
+
+  // ═══════════════════════════════════════
+  // STATE
+  // ═══════════════════════════════════════
+  let state = {};
+  let selectedDate = new Date();
+  let syncTimeout = null;
+
+  const JOURS_FULL = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+  // Format → "14.02.26" (matches your Sheet column B)
+  function toSheetDate(d) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dd}.${mm}.${yy}`;
+  }
+
+  function dateKey(d) { return `hab_${toSheetDate(d)}`; }
+
+  function isToday(d) {
+    const t = new Date();
+    return d.getDate()===t.getDate() && d.getMonth()===t.getMonth() && d.getFullYear()===t.getFullYear();
+  }
+
+  // ═══════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════
+  function renderHeader() {
+    const d = selectedDate;
+    document.getElementById('dateMain').textContent = isToday(d)
+      ? "Aujourd'hui"
+      : JOURS_FULL[d.getDay()].charAt(0).toUpperCase() + JOURS_FULL[d.getDay()].slice(1) + ' ' + d.getDate();
+    document.getElementById('dateSec').textContent = `${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  function renderWeek() {
+    const nav = document.getElementById('weekNav');
+    nav.innerHTML = '';
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 6);
+    const labels = ['dim','lun','mar','mer','jeu','ven','sam'];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const pill = document.createElement('div');
+      pill.className = 'day-pill';
+      if (d.toDateString() === selectedDate.toDateString()) pill.classList.add('active');
+
+      const saved = localStorage.getItem(dateKey(d));
+      if (saved && Object.values(JSON.parse(saved)).some(v => v === 1)) pill.classList.add('has-data');
+
+      pill.innerHTML = `<span class="d-label">${labels[d.getDay()]}</span><span class="d-num">${d.getDate()}</span><span class="d-indicator"></span>`;
+      pill.addEventListener('click', () => {
+        selectedDate = new Date(d);
+        loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
+      });
+      nav.appendChild(pill);
+    }
+  }
+
+  function loadState() {
+    state = JSON.parse(localStorage.getItem(dateKey(selectedDate)) || '{}');
+  }
+
+  function saveState() {
+    localStorage.setItem(dateKey(selectedDate), JSON.stringify(state));
+  }
+
+  function renderHabits() {
+    const list = document.getElementById('habitsList');
+    list.innerHTML = '';
+
+    HABITS.forEach((h, i) => {
+      const done = state[h.id] === 1;
+      const el = document.createElement('div');
+      el.className = `habit-item${done ? ' done' : ''}`;
+      el.style.animationDelay = `${i * 0.035}s`;
+      el.innerHTML = `
+        <div class="h-emoji">${h.icon}</div>
+        <div class="h-body"><div class="h-name">${h.name}</div></div>
+        <div class="h-toggle">
+          <svg class="h-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#060608" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>`;
+
+      el.addEventListener('click', (e) => {
+        const r = document.createElement('div');
+        r.className = 'ripple';
+        const rect = el.getBoundingClientRect();
+        const sz = Math.max(rect.width, rect.height);
+        r.style.width = r.style.height = sz + 'px';
+        r.style.left = (e.clientX - rect.left - sz/2) + 'px';
+        r.style.top = (e.clientY - rect.top - sz/2) + 'px';
+        el.appendChild(r);
+        setTimeout(() => r.remove(), 500);
+
+        state[h.id] = state[h.id] === 1 ? 0 : 1;
+        el.classList.toggle('done');
+        saveState(); updateProgress(); renderWeek(); scheduleSync();
+        if (navigator.vibrate) navigator.vibrate(10);
+      });
+
+      list.appendChild(el);
+    });
+  }
+
+  function updateProgress() {
+    const total = HABITS.length;
+    const done = HABITS.filter(h => state[h.id] === 1).length;
+    const pct = done / total;
+    document.getElementById('ringFill').style.strokeDashoffset = 175.9 * (1 - pct);
+    document.getElementById('ringNum').textContent = done;
+    document.getElementById('progressLabel').textContent = `${done} sur ${total} complétées`;
+    document.getElementById('progressFill').style.width = (pct * 100) + '%';
+  }
+
+  // ═══════════════════════════════════════
+  // GOOGLE SHEETS SYNC
+  // ═══════════════════════════════════════
+  function getConfig() {
+    return {
+      url: localStorage.getItem('cfg_url') || '',
+      id: localStorage.getItem('cfg_id') || '',
+      tab: localStorage.getItem('cfg_tab') || '',
+      token: localStorage.getItem('cfg_token') || '',
+    };
+  }
+
+  function showSync(text, type = '') {
+    const bar = document.getElementById('syncBar');
+    document.getElementById('syncText').textContent = text;
+    bar.className = 'sync-bar visible ' + type;
+    setTimeout(() => bar.classList.remove('visible'), 2500);
+  }
+
+  async function syncToSheet() {
+    const cfg = getConfig();
+    if (!cfg.url) return;
+
+    showSync('Synchronisation...');
+
+    try {
+      await fetch(cfg.url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          action: 'update',
+          token: cfg.token,                                      // 🔒 secret
+          sheetId: cfg.id,
+          sheetTab: cfg.tab,
+          date: toSheetDate(selectedDate),                       // "17.02.26"
+          jour: JOURS_FULL[selectedDate.getDay()],               // "mardi"
+          headers: HABITS.map(h => h.col),                       // column header names
+          values: HABITS.map(h => state[h.id] === 1 ? 1 : 0),   // [1, 0, 1, ...]
+        }),
+      });
+      showSync('Synchronisé ✓', 'success');
+    } catch (err) {
+      showSync('Erreur de sync ✗', 'error');
+      console.error(err);
+    }
+  }
+
+  function scheduleSync() {
+    clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(syncToSheet, 1200);
+  }
+
+  // ═══════════════════════════════════════
+  // SETTINGS
+  // ═══════════════════════════════════════
+  function openSettings() {
+    const c = getConfig();
+    document.getElementById('cfgUrl').value = c.url;
+    document.getElementById('cfgId').value = c.id;
+    document.getElementById('cfgTab').value = c.tab;
+    document.getElementById('cfgToken').value = c.token;
+    document.getElementById('overlay').classList.add('open');
+  }
+
+  function saveSettings() {
+    localStorage.setItem('cfg_url', document.getElementById('cfgUrl').value.trim());
+    localStorage.setItem('cfg_id', document.getElementById('cfgId').value.trim());
+    localStorage.setItem('cfg_tab', document.getElementById('cfgTab').value.trim());
+    localStorage.setItem('cfg_token', document.getElementById('cfgToken').value.trim());
+    document.getElementById('overlay').classList.remove('open');
+    showSync('Configuration sauvée ✓', 'success');
+  }
+
+  document.getElementById('overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'overlay') document.getElementById('overlay').classList.remove('open');
+  });
+
+  // ═══════════════════════════════════════
+  // INIT
+  // ═══════════════════════════════════════
+  loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
+</script>
+</body>
+</html>
