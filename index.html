@@ -161,11 +161,15 @@
   .hm-cell.empty { background: transparent; }
   .hm-cell.future { background: var(--surface); opacity: 0.25; }
   .hm-cell.l0 { background: var(--surface-2); }
-  .hm-cell.l1 { background: rgba(184,255,87,0.12); color: rgba(184,255,87,0.5); }
-  .hm-cell.l2 { background: rgba(184,255,87,0.25); color: rgba(184,255,87,0.7); }
-  .hm-cell.l3 { background: rgba(184,255,87,0.40); color: rgba(184,255,87,0.85); }
-  .hm-cell.l4 { background: rgba(184,255,87,0.60); color: #b8ff57; }
-  .hm-cell.l5 { background: rgba(184,255,87,0.80); color: #060608; font-weight: 600; }
+  .hm-cell.l1 { background: #252530; color: #6a6a75; }
+  .hm-cell.l2 { background: #2a2a36; color: #7a7a88; }
+  .hm-cell.l3 { background: #303040; color: #8a8a98; }
+  .hm-cell.l4 { background: rgba(100,180,50,0.25); color: rgba(120,200,60,0.8); }
+  .hm-cell.l5 { background: rgba(100,180,50,0.40); color: rgba(140,210,70,0.9); }
+  .hm-cell.l6 { background: rgba(100,180,50,0.55); color: #8edd40; }
+  .hm-cell.l7 { background: rgba(184,255,87,0.50); color: #b8ff57; }
+  .hm-cell.l8 { background: rgba(184,255,87,0.65); color: #b8ff57; }
+  .hm-cell.l9 { background: rgba(184,255,87,0.80); color: #060608; font-weight: 600; }
   .hm-cell.full { background: #b8ff57; color: #060608; font-weight: 700; box-shadow: 0 0 12px var(--accent-glow); }
 
   .heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 12px; justify-content: flex-end; }
@@ -551,13 +555,17 @@ function renderHeatmap() {
       totalDaysWithData++; totalScore += s;
       if(s === 1) perfectDays++;
       let cls;
-      if(s === 1) cls = 'full';
-      else if(s >= 0.8) cls = 'l5';
-      else if(s >= 0.6) cls = 'l4';
-      else if(s >= 0.4) cls = 'l3';
-      else if(s >= 0.2) cls = 'l2';
-      else if(s > 0) cls = 'l1';
-      else cls = 'l0';
+      if(habitFilter === 'all') {
+        // Count-based: s is ratio, multiply by total habits (10)
+        const count = Math.round(s * habits.length);
+        if(count === 0) cls = 'l0';
+        else if(count <= 3) cls = 'l' + count;  // l1, l2, l3 = grey
+        else if(count <= 6) cls = 'l' + count;  // l4, l5, l6 = dark green
+        else if(count <= 9) cls = 'l' + count;  // l7, l8, l9 = bright green
+        else cls = 'full';                       // 10/10 = glow
+      } else {
+        cls = s === 1 ? 'full' : 'l0';
+      }
       html += `<div class="hm-cell ${cls}">${d}</div>`;
     } else {
       html += `<div class="hm-cell l0">${d}</div>`;
@@ -567,9 +575,9 @@ function renderHeatmap() {
   html += '</div>';
 
   // Legend
-  html += '<div class="heatmap-legend"><span class="heatmap-legend-label">0%</span>';
-  ['l0','l1','l2','l3','l4','l5','full'].forEach(c => { html += `<div class="legend-cell hm-cell ${c}"></div>`; });
-  html += '<span class="heatmap-legend-label">100%</span></div>';
+  html += '<div class="heatmap-legend"><span class="heatmap-legend-label">0</span>';
+  ['l0','l2','l3','l5','l6','l8','l9','full'].forEach(c => { html += `<div class="legend-cell hm-cell ${c}"></div>`; });
+  html += '<span class="heatmap-legend-label">10</span></div>';
 
   // Summary stats
   const avgPct = totalDaysWithData > 0 ? Math.round((totalScore/totalDaysWithData)*100) : 0;
