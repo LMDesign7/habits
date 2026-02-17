@@ -135,25 +135,50 @@
 
   /* ─── Heatmap ─── */
   .heatmap-card { margin-bottom: 32px; }
-  .heatmap-months { display: flex; gap: 2px; margin-bottom: 6px; padding-left: 28px; }
-  .heatmap-month { font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); text-transform: uppercase; }
-  .heatmap-wrap { display: flex; gap: 6px; }
-  .heatmap-days-labels { display: flex; flex-direction: column; gap: 2px; padding-top: 1px; }
-  .heatmap-day-label { font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); height: 12px; line-height: 12px; }
-  .heatmap-grid { display: flex; gap: 2px; overflow-x: auto; flex: 1; }
-  .heatmap-grid::-webkit-scrollbar { display: none; }
-  .heatmap-col { display: flex; flex-direction: column; gap: 2px; }
-  .heatmap-cell { width: 12px; height: 12px; border-radius: 3px; background: var(--surface-2); flex-shrink: 0; }
-  .heatmap-cell.l1 { background: rgba(184,255,87,0.15); }
-  .heatmap-cell.l2 { background: rgba(184,255,87,0.30); }
-  .heatmap-cell.l3 { background: rgba(184,255,87,0.50); }
-  .heatmap-cell.l4 { background: rgba(184,255,87,0.75); }
-  .heatmap-cell.l5 { background: #b8ff57; }
-  .heatmap-cell.future { background: var(--surface); opacity: 0.3; }
+  .heatmap-filters { display: flex; gap: 8px; margin-bottom: 16px; }
+  .hm-select {
+    flex: 1; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 13px;
+    font-weight: 500; outline: none; appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238e8e9a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px;
+    cursor: pointer; transition: border-color 0.2s;
+  }
+  .hm-select:focus { border-color: var(--accent); }
+  .hm-select option { background: var(--surface); color: var(--text); }
 
-  .heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 10px; justify-content: flex-end; }
+  .heatmap-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .heatmap-day-header {
+    font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);
+    text-align: center; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .hm-cell {
+    aspect-ratio: 1; border-radius: 6px; background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);
+    position: relative; transition: all 0.2s;
+  }
+  .hm-cell.empty { background: transparent; }
+  .hm-cell.future { background: var(--surface); opacity: 0.25; }
+  .hm-cell.l0 { background: var(--surface-2); }
+  .hm-cell.l1 { background: rgba(184,255,87,0.12); color: rgba(184,255,87,0.5); }
+  .hm-cell.l2 { background: rgba(184,255,87,0.25); color: rgba(184,255,87,0.7); }
+  .hm-cell.l3 { background: rgba(184,255,87,0.40); color: rgba(184,255,87,0.85); }
+  .hm-cell.l4 { background: rgba(184,255,87,0.60); color: #b8ff57; }
+  .hm-cell.l5 { background: rgba(184,255,87,0.80); color: #060608; font-weight: 600; }
+  .hm-cell.full { background: #b8ff57; color: #060608; font-weight: 700; box-shadow: 0 0 12px var(--accent-glow); }
+
+  .heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 12px; justify-content: flex-end; }
   .heatmap-legend-label { font-size: 9px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
-  .legend-cell { width: 12px; height: 12px; border-radius: 3px; }
+  .legend-cell { width: 14px; height: 14px; border-radius: 4px; }
+
+  .heatmap-summary {
+    display: flex; gap: 12px; margin-top: 16px; padding: 14px; background: var(--surface);
+    border-radius: 14px; border: 1px solid var(--border);
+  }
+  .hm-stat { flex: 1; text-align: center; }
+  .hm-stat-num { font-size: 20px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+  .hm-stat-label { font-size: 10px; color: var(--text-dim); margin-top: 2px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
 
   /* ─── Sync bar ─── */
   .sync-bar { position: fixed; bottom: calc(var(--safe-bottom) + 72px); left: 20px; right: 20px; padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
@@ -428,61 +453,28 @@ function renderStats() {
   // ─── Heatmap ───
   let heatHTML = '<div class="heatmap-card"><div class="section-label">Calendrier d\'activité</div>';
 
-  // Créer un map date → score (nombre d'habitudes faites / total)
-  const dateScores = {};
-  days.forEach(d => {
-    const valid = d.values.filter(v=>v!==-1);
-    const done = d.values.filter(v=>v===1).length;
-    const total = valid.length;
-    if(total>0) dateScores[d.date] = done/total;
-  });
-
-  // Générer les 18 dernières semaines (~4.5 mois)
-  const today = new Date();
-  const weeksToShow = 18;
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - (weeksToShow*7) + (7 - today.getDay()));
-
-  // Month labels
-  heatHTML += '<div class="heatmap-months">';
-  let lastMonth = -1;
-  for(let w=0; w<weeksToShow; w++){
-    const d = new Date(startDate); d.setDate(startDate.getDate()+w*7);
-    const m = d.getMonth();
-    if(m!==lastMonth){ heatHTML+=`<div class="heatmap-month" style="flex:0 0 ${w===0?'auto':'auto'}">${MOIS_SHORT[m]}</div>`; lastMonth=m; }
+  // Filters
+  heatHTML += '<div class="heatmap-filters">';
+  // Month selector
+  heatHTML += '<select class="hm-select" id="hmMonth" onchange="renderHeatmap()">';
+  const curMonth = new Date().getMonth();
+  const curYear = new Date().getFullYear();
+  for(let m=0; m<12; m++){
+    const sel = m===curMonth ? ' selected' : '';
+    heatHTML += `<option value="${m}"${sel}>${MOIS[m].charAt(0).toUpperCase()+MOIS[m].slice(1)} ${curYear}</option>`;
   }
+  heatHTML += '</select>';
+  // Habit selector
+  heatHTML += '<select class="hm-select" id="hmHabit" onchange="renderHeatmap()">';
+  heatHTML += '<option value="all">Toutes</option>';
+  habits.forEach((name, idx) => {
+    const icon = HABITS.find(h=>h.col===name);
+    heatHTML += `<option value="${idx}">${icon?icon.icon+' ':''}${name}</option>`;
+  });
+  heatHTML += '</select>';
   heatHTML += '</div>';
 
-  heatHTML += '<div class="heatmap-wrap">';
-  heatHTML += '<div class="heatmap-days-labels"><div class="heatmap-day-label" style="visibility:hidden">.</div><div class="heatmap-day-label">lun</div><div class="heatmap-day-label" style="visibility:hidden">.</div><div class="heatmap-day-label">mer</div><div class="heatmap-day-label" style="visibility:hidden">.</div><div class="heatmap-day-label">ven</div><div class="heatmap-day-label" style="visibility:hidden">.</div></div>';
-  heatHTML += '<div class="heatmap-grid">';
-
-  for(let w=0; w<weeksToShow; w++){
-    heatHTML += '<div class="heatmap-col">';
-    for(let d=0; d<7; d++){
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate()+w*7+d);
-      const key = toSheetDate(date);
-      const isFuture = date > today;
-
-      if(isFuture){ heatHTML+='<div class="heatmap-cell future"></div>'; }
-      else if(dateScores[key]!==undefined){
-        const s = dateScores[key];
-        const lvl = s===0?'':s<=0.2?'l1':s<=0.4?'l2':s<=0.6?'l3':s<=0.8?'l4':'l5';
-        heatHTML+=`<div class="heatmap-cell ${lvl}" title="${key}: ${Math.round(s*100)}%"></div>`;
-      } else {
-        heatHTML+='<div class="heatmap-cell"></div>';
-      }
-    }
-    heatHTML += '</div>';
-  }
-
-  heatHTML += '</div></div>';
-
-  // Legend
-  heatHTML += '<div class="heatmap-legend"><span class="heatmap-legend-label">Moins</span>';
-  ['','l1','l2','l3','l4','l5'].forEach(c => { heatHTML+=`<div class="legend-cell heatmap-cell ${c}"></div>`; });
-  heatHTML += '<span class="heatmap-legend-label">Plus</span></div>';
+  heatHTML += '<div id="heatmapGrid"></div>';
   heatHTML += '</div>';
 
   el.innerHTML = ratesHTML + heatHTML;
@@ -493,7 +485,101 @@ function renderStats() {
       setTimeout(()=>{ bar.style.width = rates[i].pct+'%'; }, i*60);
     });
   }, 100);
+
+  // Initial heatmap render
+  renderHeatmap();
 }
+
+function renderHeatmap() {
+  if(!statsData) return;
+  const grid = document.getElementById('heatmapGrid');
+  if(!grid) return;
+
+  const month = parseInt(document.getElementById('hmMonth').value);
+  const habitFilter = document.getElementById('hmHabit').value;
+  const year = new Date().getFullYear();
+  const today = new Date();
+
+  const habits = statsData.habits;
+  const days = statsData.days;
+
+  // Build date→score map for selected filter
+  const dateScores = {};
+  days.forEach(d => {
+    if(habitFilter === 'all') {
+      const valid = d.values.filter(v=>v!==-1);
+      const done = d.values.filter(v=>v===1).length;
+      if(valid.length>0) dateScores[d.date] = done/valid.length;
+    } else {
+      const idx = parseInt(habitFilter);
+      const v = d.values[idx];
+      if(v!==-1) dateScores[d.date] = v === 1 ? 1 : 0;
+    }
+  });
+
+  // Calendar grid
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month+1, 0);
+  const daysInMonth = lastDay.getDate();
+  let startDow = firstDay.getDay(); // 0=dim
+  // Convert to Mon-first: 0(dim)→6, 1(lun)→0, ...
+  startDow = startDow === 0 ? 6 : startDow - 1;
+
+  const dayHeaders = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+
+  let html = '<div class="heatmap-cal">';
+
+  // Day headers
+  dayHeaders.forEach(d => { html += `<div class="heatmap-day-header">${d}</div>`; });
+
+  // Empty cells before 1st
+  for(let i=0; i<startDow; i++) html += '<div class="hm-cell empty"></div>';
+
+  // Stats accumulators
+  let totalDaysWithData = 0, totalScore = 0, perfectDays = 0;
+
+  // Day cells
+  for(let d=1; d<=daysInMonth; d++){
+    const date = new Date(year, month, d);
+    const key = toSheetDate(date);
+    const isFuture = date > today;
+
+    if(isFuture){
+      html += `<div class="hm-cell future">${d}</div>`;
+    } else if(dateScores[key] !== undefined){
+      const s = dateScores[key];
+      totalDaysWithData++; totalScore += s;
+      if(s === 1) perfectDays++;
+      let cls;
+      if(s === 1) cls = 'full';
+      else if(s >= 0.8) cls = 'l5';
+      else if(s >= 0.6) cls = 'l4';
+      else if(s >= 0.4) cls = 'l3';
+      else if(s >= 0.2) cls = 'l2';
+      else if(s > 0) cls = 'l1';
+      else cls = 'l0';
+      html += `<div class="hm-cell ${cls}">${d}</div>`;
+    } else {
+      html += `<div class="hm-cell l0">${d}</div>`;
+    }
+  }
+
+  html += '</div>';
+
+  // Legend
+  html += '<div class="heatmap-legend"><span class="heatmap-legend-label">0%</span>';
+  ['l0','l1','l2','l3','l4','l5','full'].forEach(c => { html += `<div class="legend-cell hm-cell ${c}"></div>`; });
+  html += '<span class="heatmap-legend-label">100%</span></div>';
+
+  // Summary stats
+  const avgPct = totalDaysWithData > 0 ? Math.round((totalScore/totalDaysWithData)*100) : 0;
+  html += `<div class="heatmap-summary">
+    <div class="hm-stat"><div class="hm-stat-num">${avgPct}%</div><div class="hm-stat-label">Moyenne</div></div>
+    <div class="hm-stat"><div class="hm-stat-num">${totalDaysWithData}</div><div class="hm-stat-label">Jours trackés</div></div>
+    <div class="hm-stat"><div class="hm-stat-num">${perfectDays}</div><div class="hm-stat-label">Jours parfaits</div></div>
+  </div>`;
+
+  grid.innerHTML = html;
 
 // ═══════════════════════════════════════
 // SETTINGS
