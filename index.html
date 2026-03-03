@@ -108,6 +108,7 @@
   /* ─── STATS PAGE ─── */
   .stats-page { padding: 20px 24px; }
   .stats-header { margin-bottom: 28px; }
+  .stats-header-row { display: flex; justify-content: space-between; align-items: center; }
   .stats-title { font-size: 32px; font-weight: 600; letter-spacing: -0.5px; }
   .stats-sub { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 6px; }
 
@@ -125,8 +126,21 @@
   .rate-info { flex: 1; min-width: 0; }
   .rate-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; display: flex; justify-content: space-between; }
   .rate-pct { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
-  .rate-bar { width: 100%; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
-  .rate-bar-fill { height: 100%; border-radius: 3px; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+  .rate-bar { width: 100%; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: visible; position: relative; }
+  .rate-bar-fill { height: 100%; border-radius: 3px; transition: width 1s cubic-bezier(0.4,0,0.2,1); position: relative; z-index: 1; }
+  .rate-goal-marker {
+    position: absolute; top: -4px; width: 2px; height: 14px;
+    background: var(--text); border-radius: 1px; z-index: 2;
+    opacity: 0.5; transition: left 0.5s;
+  }
+  .rate-goal-label {
+    font-size: 9px; font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim); position: absolute; top: -16px;
+    transform: translateX(-50%); white-space: nowrap;
+  }
+  .rate-status { font-size: 10px; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+  .rate-status.reached { color: var(--accent); }
+  .rate-status.missed { color: var(--text-dim); }
 
   /* Bar color gradient based on percentage */
   .rate-bar-fill.low { background: linear-gradient(90deg, #ff6b6b, #ff8e53); }
@@ -185,6 +199,24 @@
   .hm-stat-label { font-size: 10px; color: var(--text-dim); margin-top: 2px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
 
   /* ─── Sync bar ─── */
+  /* ─── Goals modal ─── */
+  .goals-list { max-height: 55dvh; overflow-y: auto; }
+  .goal-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .goal-row:last-child { border-bottom: none; }
+  .goal-emoji { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
+  .goal-name { flex: 1; font-size: 14px; font-weight: 500; min-width: 0; }
+  .goal-input-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .goal-input {
+    width: 52px; padding: 8px 4px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 600; text-align: center; outline: none;
+  }
+  .goal-input:focus { border-color: var(--accent); }
+  .goal-pct { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+  .goal-status { font-size: 11px; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+  .goal-status.reached { color: var(--accent); }
+  .goal-status.not-reached { color: var(--red); }
+
   .sync-bar { position: fixed; bottom: calc(var(--safe-bottom) + 72px); left: 20px; right: 20px; padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
   .sync-bar.visible { transform: translateY(0); opacity: 1; }
   .sync-bar.success { border-color: rgba(184,255,87,0.25); color: var(--accent); }
@@ -254,7 +286,12 @@
 <div class="page" id="pageStats">
   <div class="stats-page">
     <div class="stats-header">
-      <div class="stats-title">Statistiques</div>
+      <div class="stats-header-row">
+        <div class="stats-title">Statistiques</div>
+        <button class="settings-btn" onclick="openGoals()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v1m0 16v1m8.66-14.5l-.87.5M4.21 16l-.87.5M20.66 16l-.87-.5M4.21 8l-.87-.5M17 12a5 5 0 11-10 0 5 5 0 0110 0z"/><circle cx="12" cy="12" r="2"/></svg>
+        </button>
+      </div>
       <div class="stats-sub" id="statsSub">Chargement...</div>
     </div>
     <div id="statsContent">
@@ -279,6 +316,17 @@
 </div>
 
 <div class="sync-bar" id="syncBar"><div class="sync-dot"></div><span id="syncText"></span></div>
+
+<!-- Goals Modal -->
+<div class="overlay" id="goalsOverlay">
+  <div class="modal">
+    <div class="modal-bar"></div>
+    <h2>Objectifs</h2>
+    <p class="modal-desc">Définis le taux de réussite à atteindre pour chaque habitude.</p>
+    <div class="goals-list" id="goalsList"></div>
+    <button class="save-btn" onclick="saveGoals()">Enregistrer</button>
+  </div>
+</div>
 
 <!-- Settings Modal -->
 <div class="overlay" id="overlay">
@@ -436,19 +484,27 @@ function renderStats() {
     days.forEach(d => { if(d.values[idx]!==-1){ total++; if(d.values[idx]===1) done++; } });
     const pct = total>0 ? Math.round((done/total)*100) : 0;
     const icon = HABITS.find(h=>h.col===name);
-    return { name, pct, emoji: icon?icon.icon:'📌' };
+    return { name, pct, emoji: icon?icon.icon:'📌', id: icon?icon.id:'' };
   });
+
+  const goals = getGoals();
 
   // Trier du meilleur au moins bon
   rates.sort((a,b)=>b.pct-a.pct);
 
   rates.forEach(r => {
+    const goal = goals[r.id];
+    const hasGoal = goal !== undefined;
+    const reached = hasGoal && r.pct >= goal;
     const cls = r.pct>=70?'high':r.pct>=40?'mid':'low';
+    const goalMarker = hasGoal ? `<div class="rate-goal-marker" style="left:${goal}%"><div class="rate-goal-label">${goal}%</div></div>` : '';
+    const statusHTML = hasGoal ? `<div class="rate-status ${reached?'reached':'missed'}">${reached?'✓ Objectif atteint':'↑ Objectif : '+goal+'%'}</div>` : '';
     ratesHTML += `<div class="rate-item">
       <div class="rate-emoji">${r.emoji}</div>
       <div class="rate-info">
         <div class="rate-name"><span>${r.name}</span><span class="rate-pct">${r.pct}%</span></div>
-        <div class="rate-bar"><div class="rate-bar-fill ${cls}" style="width:0%"></div></div>
+        <div class="rate-bar">${goalMarker}<div class="rate-bar-fill ${cls}" style="width:0%"></div></div>
+        ${statusHTML}
       </div>
     </div>`;
   });
@@ -589,6 +645,50 @@ function renderHeatmap() {
 
   grid.innerHTML = html;
 }
+
+// ═══════════════════════════════════════
+// GOALS
+// ═══════════════════════════════════════
+function getGoals() {
+  return JSON.parse(localStorage.getItem('habit_goals') || '{}');
+}
+
+function openGoals() {
+  const goals = getGoals();
+  const list = document.getElementById('goalsList');
+  let html = '';
+  HABITS.forEach(h => {
+    const val = goals[h.id] !== undefined ? goals[h.id] : '';
+    html += `<div class="goal-row">
+      <div class="goal-emoji">${h.icon}</div>
+      <div class="goal-name">${h.name}</div>
+      <div class="goal-input-wrap">
+        <input class="goal-input" type="number" min="0" max="100" id="goal_${h.id}" value="${val}" placeholder="—">
+        <span class="goal-pct">%</span>
+      </div>
+    </div>`;
+  });
+  list.innerHTML = html;
+  document.getElementById('goalsOverlay').classList.add('open');
+}
+
+function saveGoals() {
+  const goals = {};
+  HABITS.forEach(h => {
+    const input = document.getElementById('goal_' + h.id);
+    const val = parseInt(input.value);
+    if(!isNaN(val) && val >= 0 && val <= 100) goals[h.id] = val;
+  });
+  localStorage.setItem('habit_goals', JSON.stringify(goals));
+  document.getElementById('goalsOverlay').classList.remove('open');
+  showSync('Objectifs sauvés ✓', 'success');
+  // Re-render stats if loaded
+  if(statsLoaded) renderStats();
+}
+
+document.getElementById('goalsOverlay').addEventListener('click', e => {
+  if(e.target.id === 'goalsOverlay') document.getElementById('goalsOverlay').classList.remove('open');
+});
 
 // ═══════════════════════════════════════
 // SETTINGS
