@@ -459,7 +459,7 @@ async function loadStats() {
   if(!c.url){ document.getElementById('statsContent').innerHTML='<div class="stats-loading">Configure ton Google Sheet dans ⚙️ pour voir les stats.</div>'; return; }
 
   try {
-    const resp = await fetch(`${c.url}?token=${encodeURIComponent(c.token)}&action=readAll&sheetId=${encodeURIComponent(c.id)}&sheetTab=${encodeURIComponent(c.tab)}`);
+    const resp = await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'readAll',token:c.token,sheetId:c.id,sheetTab:c.tab})});
     statsData = await resp.json();
     if(!statsData.success) throw new Error(statsData.error);
     statsLoaded = true;
