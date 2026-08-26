@@ -20,11 +20,14 @@
     --text-mid: #8e8e9a;
     --accent: #b8ff57;
     --accent-soft: rgba(184, 255, 87, 0.07);
+    --accent-light: rgba(184, 255, 87, 0.10);   /* fond de l'onglet actif */
     --accent-glow: rgba(184, 255, 87, 0.20);
     --red: #ff6b6b;
     --radius: 18px;
+    --radius-pill: 999px;
     --safe-top: env(safe-area-inset-top, 20px);
-    --safe-bottom: env(safe-area-inset-bottom, 20px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-gap: max(18px, env(safe-area-inset-bottom, 0px));
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -40,14 +43,15 @@
   body {
     font-family: 'Outfit', -apple-system, sans-serif;
     background: #000; color: var(--text);
-    height: 100%; overflow: hidden;
+    height: 100dvh;                  /* dvh, pas % : iOS calcule mal le % en standalone */
+    overflow: hidden;
     overscroll-behavior: none;
     touch-action: manipulation;      /* supprime le zoom au double-tap */
     display: flex; justify-content: center;
   }
   .app {
     width: 100%; max-width: 520px;   /* cadre l'app sur grand écran */
-    height: 100%;
+    height: 100dvh;
     display: flex; flex-direction: column;
     position: relative; overflow: hidden;
     background: var(--bg);
@@ -58,32 +62,43 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;  /* le scroll ne "fuit" pas vers la page */
     padding-top: var(--safe-top);
-    padding-bottom: 24px;
+    /* Réserve la place de la pilule flottante : ~54px + décollement + respiration */
+    padding-bottom: calc(var(--nav-gap) + 96px);
   }
   .app-scroll::-webkit-scrollbar { width: 0; }
 
-  /* ─── Tab bar ─── */
+  /* ─── Nav pill flottante ─── */
   .tab-bar {
-    position: relative; flex-shrink: 0;
-    height: calc(64px + var(--safe-bottom));
-    padding-bottom: var(--safe-bottom);
-    background: #0c0c0f;
-    border-top: 1px solid var(--border);
-    display: flex; z-index: 150;
+    position: fixed;
+    bottom: var(--nav-gap);
+    left: 50%; transform: translateX(-50%);
+    width: min(420px, calc(100% - 32px));
+    display: flex; gap: 4px;
+    padding: 7px 9px;
+    background: rgba(12, 12, 15, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);   /* obligatoire : Safari ignore la version non préfixée */
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+    z-index: 150;
   }
   .tab-btn {
     flex: 1; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 4px;
-    background: none; border: none; color: var(--text-dim);
+    padding: 9px 0;
+    background: transparent; border: none; border-radius: var(--radius-pill);
+    color: var(--text-mid);
     font-family: 'Outfit', sans-serif; font-size: 10px; font-weight: 500;
-    cursor: pointer; transition: color 0.2s; letter-spacing: 0.3px;
+    letter-spacing: 0.1px; white-space: nowrap;
+    cursor: pointer; transition: color 0.2s, background 0.2s;
     position: relative;
   }
-  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active { background: var(--accent-light); color: var(--accent); }
   .tab-btn svg { transition: all 0.2s; }
   /* Pastille de compteur sur l'onglet Tâches */
   .tab-badge {
-    position: absolute; top: 8px; left: 50%; margin-left: 8px;
+    position: absolute; top: 4px; left: 50%; margin-left: 8px;
     min-width: 16px; height: 16px; padding: 0 4px;
     border-radius: 8px; background: var(--accent); color: var(--bg);
     font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
@@ -339,8 +354,8 @@
   .goal-input:focus { border-color: var(--accent); }
   .goal-pct { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 
-  .sync-bar { position: absolute; bottom: calc(64px + var(--safe-bottom) + 16px); left: 20px; right: 20px; padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
-  .sync-bar.visible { transform: translateY(0); opacity: 1; }
+  .sync-bar { position: fixed; bottom: calc(var(--nav-gap) + 66px); left: 50%; transform: translateX(-50%) translateY(120px); width: min(420px, calc(100% - 32px)); padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
+  .sync-bar.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
   .sync-bar.success { border-color: rgba(184,255,87,0.25); color: var(--accent); }
   .sync-bar.error { border-color: rgba(255,107,107,0.25); color: var(--red); }
   .sync-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: blink 1s infinite; }
@@ -514,16 +529,16 @@
 <!-- ═══════ TAB BAR ═══════ -->
 <div class="tab-bar">
   <button class="tab-btn active" id="tabHome" onclick="switchTab('home')">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
     Habitudes
   </button>
   <button class="tab-btn" id="tabTasks" onclick="switchTab('tasks')">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
     <span class="tab-badge" id="tabBadge">0</span>
     Tâches
   </button>
   <button class="tab-btn" id="tabStats" onclick="switchTab('stats')">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
     Stats
   </button>
 </div>
