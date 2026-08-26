@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Habits">
@@ -27,17 +27,44 @@
     --safe-bottom: env(safe-area-inset-bottom, 20px);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  /* ═══ COQUE D'APP ═══
+     Le document ne scrolle jamais. Seul .app-scroll scrolle.
+     C'est ce qui supprime le rebond élastique, le pan horizontal
+     et le pinch-zoom — le comportement d'une app native. */
+  html {
+    height: 100%; overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     font-family: 'Outfit', -apple-system, sans-serif;
-    background: var(--bg); color: var(--text);
-    min-height: 100dvh; overflow-x: hidden;
-    padding-top: var(--safe-top);
-    padding-bottom: calc(var(--safe-bottom) + 72px);
+    background: #000; color: var(--text);
+    height: 100%; overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;      /* supprime le zoom au double-tap */
+    display: flex; justify-content: center;
   }
+  .app {
+    width: 100%; max-width: 520px;   /* cadre l'app sur grand écran */
+    height: 100%;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+    background: var(--bg);
+  }
+  .app-scroll {
+    flex: 1;
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;  /* le scroll ne "fuit" pas vers la page */
+    padding-top: var(--safe-top);
+    padding-bottom: 24px;
+  }
+  .app-scroll::-webkit-scrollbar { width: 0; }
 
   /* ─── Tab bar ─── */
   .tab-bar {
-    position: fixed; bottom: 0; left: 0; right: 0;
+    position: relative; flex-shrink: 0;
     height: calc(64px + var(--safe-bottom));
     padding-bottom: var(--safe-bottom);
     background: #0c0c0f;
@@ -274,9 +301,10 @@
   .hm-select:focus { border-color: var(--accent); }
   .hm-select option { background: var(--surface); color: var(--text); }
 
-  .heatmap-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  /* Grille bornée : les cellules ne peuvent plus enfler sur écran large */
+  .heatmap-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; max-width: 364px; margin: 0 auto; }
   .heatmap-day-header { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); text-align: center; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .hm-cell { aspect-ratio: 1; border-radius: 6px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); position: relative; transition: all 0.2s; }
+  .hm-cell { aspect-ratio: 1; max-height: 46px; border-radius: 8px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); position: relative; transition: all 0.2s; }
   .hm-cell.empty { background: transparent; }
   .hm-cell.future { background: var(--surface); opacity: 0.25; }
   .hm-cell.l0 { background: var(--surface-2); }
@@ -311,7 +339,7 @@
   .goal-input:focus { border-color: var(--accent); }
   .goal-pct { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 
-  .sync-bar { position: fixed; bottom: calc(var(--safe-bottom) + 72px); left: 20px; right: 20px; padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
+  .sync-bar { position: absolute; bottom: calc(64px + var(--safe-bottom) + 16px); left: 20px; right: 20px; padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
   .sync-bar.visible { transform: translateY(0); opacity: 1; }
   .sync-bar.success { border-color: rgba(184,255,87,0.25); color: var(--accent); }
   .sync-bar.error { border-color: rgba(255,107,107,0.25); color: var(--red); }
@@ -320,7 +348,7 @@
   .sync-bar.success .sync-dot, .sync-bar.error .sync-dot { animation: none; }
 
   /* ─── Modal ─── */
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 200; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 200; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
   .overlay.open { opacity: 1; pointer-events: all; }
   .modal { width: 100%; max-width: 500px; max-height: 88dvh; background: var(--surface); border-radius: 28px 28px 0 0; padding: 20px 24px calc(var(--safe-bottom) + 24px); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4,0,0.2,1); overflow-y: auto; }
   .overlay.open .modal { transform: translateY(0); }
@@ -347,15 +375,59 @@
   .instructions[open] summary::before { transform: rotate(90deg); }
   .instructions ol { margin-top: 12px; padding-left: 20px; font-size: 12px; color: var(--text-dim); line-height: 2; }
   .instructions a { color: var(--accent); text-decoration: none; }
+
+  /* ─── Sauvegarde cloud ─── */
+  .cloud-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
+    display: inline-block; margin-left: 8px; vertical-align: middle; transition: all 0.3s;
+  }
+  .cloud-dot.synced  { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+  .cloud-dot.syncing { background: #ffd93d; animation: blink 1s infinite; }
+  .cloud-dot.offline { background: var(--text-dim); }
+  .cloud-dot.conflict, .cloud-dot.error { background: var(--red); }
+
+  .cloud-state {
+    display: flex; align-items: center; gap: 12px; padding: 16px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 18px;
+  }
+  .cloud-state-txt { flex: 1; min-width: 0; }
+  .cloud-state-main { font-size: 14px; font-weight: 500; }
+  .cloud-state-sub { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 3px; }
+
+  .hist-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .hist-row:last-child { border-bottom: none; }
+  .hist-info { flex: 1; min-width: 0; }
+  .hist-date { font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+  .hist-ver { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .hist-btn {
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text-mid);
+    padding: 7px 13px; border-radius: 10px; font-family: 'Outfit', sans-serif;
+    font-size: 12px; font-weight: 500; cursor: pointer; flex-shrink: 0;
+  }
+  .hist-btn:active { transform: scale(0.95); }
+
+  /* Conflit : les deux versions côte à côte, jamais de choix automatique */
+  .conflict-card {
+    border: 1px solid var(--border); border-radius: 16px; padding: 16px;
+    margin-bottom: 12px; cursor: pointer; transition: all 0.2s; background: var(--bg);
+  }
+  .conflict-card.picked { border-color: var(--accent); background: var(--accent-soft); }
+  .conflict-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .conflict-meta { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; line-height: 1.7; }
 </style>
 </head>
 <body>
+<div class="app">
+<div class="app-scroll">
 
 <!-- ═══════ HOME PAGE — HABITUDES (inchangé) ═══════ -->
 <div class="page active" id="pageHome">
   <div class="header">
     <div class="header-row">
-      <div class="brand">habits</div>
+      <div class="brand">habits<span class="cloud-dot" id="cloudDotBrand"></span></div>
       <button class="settings-btn" onclick="openSettings()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
       </button>
@@ -437,6 +509,8 @@
   </div>
 </div>
 
+</div><!-- /.app-scroll -->
+
 <!-- ═══════ TAB BAR ═══════ -->
 <div class="tab-bar">
   <button class="tab-btn active" id="tabHome" onclick="switchTab('home')">
@@ -500,11 +574,56 @@
   <div class="modal">
     <div class="modal-bar"></div>
     <h2>Tâches</h2>
-    <p class="modal-desc">Tes tâches sont stockées sur cet appareil. Exporte-les régulièrement.</p>
-    <button class="save-btn" onclick="exportTodo()">Exporter en JSON</button>
+    <p class="modal-desc">Sauvegarde distante, plus un export manuel si tu veux une copie hors du navigateur.</p>
+    <button class="save-btn" onclick="document.getElementById('todoSettingsOverlay').classList.remove('open');openCloud()">Sauvegarde cloud</button>
+    <div class="field-label" style="margin-top:26px">Export manuel</div>
+    <button class="ghost-btn" onclick="exportTodo()">Exporter les tâches en JSON</button>
     <button class="ghost-btn" onclick="document.getElementById('importFile').click()">Importer un fichier</button>
     <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importTodo(this)">
-    <div class="field-hint" style="margin-top:14px">Sauvegarde locale du <span id="lastExport">—</span></div>
+    <div class="field-hint" style="margin-top:14px">Dernier export du <span id="lastExport">—</span></div>
+  </div>
+</div>
+
+<!-- Modal sauvegarde cloud -->
+<div class="overlay" id="cloudOverlay">
+  <div class="modal">
+    <div class="modal-bar"></div>
+    <h2>Sauvegarde</h2>
+    <p class="modal-desc">Copie distante de tes habitudes et de tes tâches. Ton téléphone n'est plus le seul endroit où elles existent.</p>
+
+    <div class="cloud-state">
+      <span class="cloud-dot" id="cloudDotBig"></span>
+      <div class="cloud-state-txt">
+        <div class="cloud-state-main" id="cloudStateMain">Non connecté</div>
+        <div class="cloud-state-sub" id="cloudStateSub">—</div>
+      </div>
+    </div>
+
+    <button class="save-btn" id="cloudLoginBtn" onclick="cloudLogin()">Se connecter avec Google</button>
+    <button class="ghost-btn" id="cloudLogoutBtn" style="display:none" onclick="cloudLogout()">Se déconnecter</button>
+
+    <div id="cloudHistoryWrap" style="display:none">
+      <div class="field-label" style="margin-top:26px">Versions précédentes</div>
+      <div id="cloudHistory"></div>
+    </div>
+
+    <div class="field-label" style="margin-top:26px">Sauvegarde manuelle</div>
+    <button class="ghost-btn" onclick="copyEverything()">Copier tout dans le presse-papier</button>
+    <button class="ghost-btn" onclick="exportEverything()">Télécharger en fichier</button>
+    <div class="field-hint" style="margin-top:8px">Sur iPhone, préfère le presse-papier : colle ensuite dans Notes ou dans un mail. Les téléchargements sont peu fiables depuis une app installée.</div>
+    <div class="field-hint" id="lastBackup" style="margin-top:10px"></div>
+    <div class="field-hint" id="migrationInfo" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- Modal conflit -->
+<div class="overlay" id="conflictOverlay">
+  <div class="modal">
+    <div class="modal-bar"></div>
+    <h2>Deux versions différentes</h2>
+    <p class="modal-desc">Cet appareil et le cloud ne contiennent pas la même chose. Choisis laquelle garder — rien ne sera écrasé avant ton choix.</p>
+    <div id="conflictCards"></div>
+    <button class="save-btn" id="conflictConfirm" onclick="applyConflictChoice()" disabled style="opacity:.4">Choisis une version</button>
   </div>
 </div>
 
@@ -524,7 +643,8 @@
   <div class="modal">
     <div class="modal-bar"></div>
     <h2>Configuration</h2>
-    <p class="modal-desc">Connecte ton Google Sheet pour synchroniser.</p>
+    <button class="save-btn" style="margin-bottom:24px" onclick="document.getElementById('overlay').classList.remove('open');openCloud()">Sauvegarde cloud <span class="cloud-dot" id="cloudDotSettings"></span></button>
+    <p class="modal-desc">Google Sheet — ancienne synchronisation, conservée le temps de valider la nouvelle.</p>
     <details class="instructions"><summary>Comment configurer ?</summary><ol>
       <li>Va sur <a href="https://script.google.com" target="_blank">script.google.com</a></li>
       <li>Crée un nouveau projet, colle le code</li>
@@ -538,6 +658,8 @@
     <button class="save-btn" onclick="saveSettings()">Enregistrer</button>
   </div>
 </div>
+
+</div><!-- /.app -->
 
 <script>
 // ═══════════════════════════════════════
@@ -575,10 +697,26 @@ function switchTab(tab) {
     document.getElementById(p).classList.toggle('active', k===tab);
     document.getElementById(t).classList.toggle('active', k===tab);
   });
-  window.scrollTo(0,0);
+  document.querySelector('.app-scroll').scrollTop = 0;
   if (tab==='stats' && !statsLoaded) loadStats();
   if (tab==='tasks') renderTodo();
 }
+
+// ═══════════════════════════════════════
+// COMPORTEMENT NATIF
+// iOS Safari ignore user-scalable=no depuis iOS 10 : il faut
+// bloquer les événements de geste à la main.
+// ═══════════════════════════════════════
+['gesturestart','gesturechange','gestureend'].forEach(ev=>{
+  document.addEventListener(ev, e=>e.preventDefault(), { passive:false });
+});
+// Double-tap = zoom sur iOS. On neutralise le second tap rapproché.
+let lastTouch = 0;
+document.addEventListener('touchend', e=>{
+  const now = Date.now();
+  if(now - lastTouch <= 300) e.preventDefault();
+  lastTouch = now;
+}, { passive:false });
 
 // ═══════════════════════════════════════
 // HOME — Render (inchangé)
@@ -597,16 +735,71 @@ function renderWeek() {
     const d=new Date(start); d.setDate(start.getDate()+i);
     const pill=document.createElement('div'); pill.className='day-pill';
     if(d.toDateString()===selectedDate.toDateString()) pill.classList.add('active');
-    const saved=localStorage.getItem(dateKey(d));
-    if(saved&&Object.values(JSON.parse(saved)).some(v=>v===1)) pill.classList.add('has-data');
+    const saved=habitsData.days[toSheetDate(d)];
+    if(saved&&Object.values(saved).some(v=>v===1)) pill.classList.add('has-data');
     pill.innerHTML=`<span class="d-label">${labels[d.getDay()]}</span><span class="d-num">${d.getDate()}</span><span class="d-indicator"></span>`;
     pill.addEventListener('click',()=>{ selectedDate=new Date(d); loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress(); });
     nav.appendChild(pill);
   }
 }
 
-function loadState() { state=JSON.parse(localStorage.getItem(dateKey(selectedDate))||'{}'); }
-function saveState() { localStorage.setItem(dateKey(selectedDate), JSON.stringify(state)); }
+/* ═══════════════════════════════════════════════════════════
+   DONNÉES HABITUDES — clé consolidée `habits_data`
+   Forme : { days: { "26.08.26": {reveil:1,…} }, goals: { reveil:80 } }
+
+   MIGRATION : les anciennes clés `hab_*` sont LUES pour construire
+   `habits_data`, puis laissées en place. Elles ne sont JAMAIS
+   supprimées — c'est le filet si quoi que ce soit tourne mal.
+   ═══════════════════════════════════════════════════════════ */
+let habitsData = { days:{}, goals:{} };
+
+function migrateHabits(){
+  if(localStorage.getItem('habits_data')) return false;   // déjà migré
+  const days = {}, keys = [];
+  for(let i=0; i<localStorage.length; i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith('hab_')){
+      keys.push(k);
+      try { days[k.slice(4)] = JSON.parse(localStorage.getItem(k)) || {}; } catch(e){}
+    }
+  }
+  let goals = {};
+  try { goals = JSON.parse(localStorage.getItem('habit_goals') || '{}'); } catch(e){}
+  localStorage.setItem('habits_data', JSON.stringify({ days, goals }));
+  localStorage.setItem('habits_migrated_at', new Date().toISOString());
+  localStorage.setItem('habits_migrated_count', String(keys.length));
+  console.log(`[migration] ${keys.length} jours repris. Les clés hab_* sont conservées.`);
+  return true;
+}
+
+function loadHabitsData(){
+  migrateHabits();
+  try { habitsData = JSON.parse(localStorage.getItem('habits_data')) || { days:{}, goals:{} }; }
+  catch(e){ habitsData = { days:{}, goals:{} }; }
+  if(!habitsData.days)  habitsData.days  = {};
+  if(!habitsData.goals) habitsData.goals = {};
+}
+function saveHabitsData(){
+  localStorage.setItem('habits_data', JSON.stringify(habitsData));
+  if(window.cloudHabits) window.cloudHabits.save(habitsData);
+}
+// Remplace habitsData après une hydratation distante ou une restauration
+function setHabitsData(d){
+  habitsData = d && d.days ? d : { days:{}, goals:{} };
+  if(!habitsData.goals) habitsData.goals = {};
+  localStorage.setItem('habits_data', JSON.stringify(habitsData));
+  loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
+  if(statsLoaded) renderStats();
+}
+
+function loadState() { state = habitsData.days[toSheetDate(selectedDate)] || {}; }
+function saveState() {
+  habitsData.days[toSheetDate(selectedDate)] = state;
+  saveHabitsData();
+  // Miroir vers l'ancienne clé : tant que la nouvelle chaîne n'est pas
+  // prouvée, l'ancienne reste à jour et un retour arrière est possible.
+  try { localStorage.setItem(dateKey(selectedDate), JSON.stringify(state)); } catch(e){}
+}
 
 function renderHabits() {
   const list=document.getElementById('habitsList'); list.innerHTML='';
@@ -638,7 +831,14 @@ function updateProgress() {
 // ═══════════════════════════════════════
 // SYNC HABITUDES (inchangé)
 // ═══════════════════════════════════════
-function showSync(t,type='') { const b=document.getElementById('syncBar'); document.getElementById('syncText').textContent=t; b.className='sync-bar visible '+type; setTimeout(()=>b.classList.remove('visible'),2500); }
+function showSync(t,type='') {
+  const b=document.getElementById('syncBar');
+  // La barre peut avoir été remplacée par le toast « Annuler » : on la reconstruit.
+  b.innerHTML = '<div class="sync-dot"></div><span id="syncText"></span>';
+  document.getElementById('syncText').textContent=t;
+  b.className='sync-bar visible '+type;
+  setTimeout(()=>b.classList.remove('visible'),2500);
+}
 async function syncToSheet() {
   const c=getConfig(); if(!c.url) return; showSync('Synchronisation...');
   try { await fetch(c.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'update',token:c.token,sheetId:c.id,sheetTab:c.tab,date:toSheetDate(selectedDate),jour:JOURS[selectedDate.getDay()],headers:HABITS.map(h=>h.col),values:HABITS.map(h=>state[h.id]===1?1:0)})}); showSync('Synchronisé ✓','success'); } catch(e){ showSync('Erreur ✗','error'); }
@@ -669,17 +869,34 @@ function loadTodo(){
   catch(e){ todo = { cats:[], tasks:[] }; }
   if(!todo.cats) todo.cats = [];
   if(!todo.tasks) todo.tasks = [];
-  // Catégories par défaut au premier lancement
-  if(todo.cats.length === 0){
-    todo.cats = [
-      { id:uid(), name:'Perso',            color:CAT_COLORS[0], order:0 },
-      { id:uid(), name:'Chaîne YouTube',   color:CAT_COLORS[1], order:1 },
-      { id:uid(), name:'Projet de ma sœur',color:CAT_COLORS[2], order:2 },
-    ];
-    saveTodo();
-  }
 }
-function saveTodo(){ localStorage.setItem('todo_data', JSON.stringify(todo)); }
+
+/* Les catégories par défaut ne sont PAS créées au chargement.
+   Sur un nouveau téléphone, fabriquer des données locales avant
+   d'avoir interrogé le cloud provoquerait un faux conflit — ou pire,
+   écraserait le distant. On sème seulement une fois le cloud résolu. */
+function seedTodoDefaults(){
+  if(todo.cats.length || todo.tasks.length) return;
+  todo.cats = [
+    { id:uid(), name:'Perso',             color:CAT_COLORS[0], order:0 },
+    { id:uid(), name:'Chaîne YouTube',    color:CAT_COLORS[1], order:1 },
+    { id:uid(), name:'Projet de ma sœur', color:CAT_COLORS[2], order:2 },
+  ];
+  saveTodo(); renderTodo();
+}
+
+function saveTodo(){
+  localStorage.setItem('todo_data', JSON.stringify(todo));
+  if(window.cloudTodo) window.cloudTodo.save(todo);
+}
+// Remplace todo après une hydratation distante ou une restauration
+function setTodoData(d){
+  todo = (d && d.tasks) ? d : { cats:[], tasks:[] };
+  if(!todo.cats) todo.cats = [];
+  if(!todo.tasks) todo.tasks = [];
+  localStorage.setItem('todo_data', JSON.stringify(todo));
+  renderTodo();
+}
 
 // ─── Rollover : on ne compte pas, on calcule ───
 // scheduledFor avance au jour même ; firstScheduledFor ne bouge jamais.
@@ -1176,7 +1393,7 @@ function renderHeatmap() {
 // ═══════════════════════════════════════
 // GOALS (inchangé)
 // ═══════════════════════════════════════
-function getGoals() { return JSON.parse(localStorage.getItem('habit_goals') || '{}'); }
+function getGoals() { return habitsData.goals || {}; }
 function openGoals() {
   const goals = getGoals(); let html = '';
   HABITS.forEach(h => {
@@ -1199,7 +1416,9 @@ function saveGoals() {
     const val = parseInt(document.getElementById('goal_' + h.id).value);
     if(!isNaN(val) && val >= 0 && val <= 100) goals[h.id] = val;
   });
-  localStorage.setItem('habit_goals', JSON.stringify(goals));
+  habitsData.goals = goals;
+  saveHabitsData();
+  try { localStorage.setItem('habit_goals', JSON.stringify(goals)); } catch(e){}   // miroir
   document.getElementById('goalsOverlay').classList.remove('open');
   showSync('Objectifs sauvés ✓', 'success');
   if(statsLoaded) renderStats();
@@ -1218,14 +1437,269 @@ document.getElementById('overlay').addEventListener('click',e=>{ if(e.target.id=
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
+loadHabitsData();
 loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
 loadTodo(); runRollover(); renderTodo();
+
+/* Filet : si le module cloud ne se charge pas (CDN injoignable, navigateur
+   sans import maps), l'app doit rester pleinement utilisable hors ligne. */
+setTimeout(()=>{ if(!window.__cloudResolved) seedTodoDefaults(); }, 4000);
 
 // Demande au navigateur de ne pas évincer les données (Safari efface après 7 j d'inactivité)
 if(navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
 // Le rollover doit tourner au retour dans l'app, pas seulement au chargement
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ runRollover(); renderTodo(); } });
+
+
+/* ═══════════════════════════════════════════════════════════
+   SAUVEGARDE — interface
+   Le câblage Supabase est dans le <script type="module"> plus bas.
+   ═══════════════════════════════════════════════════════════ */
+let conflictPayload = null, conflictChoice = null, conflictScope = null;
+
+function openCloud(){
+  document.getElementById('cloudOverlay').classList.add('open');
+  refreshCloudUI();
+  const n = localStorage.getItem('habits_migrated_count');
+  const now = Object.keys(habitsData.days||{}).length;
+  document.getElementById('migrationInfo').innerHTML = n
+    ? `Migration : ${n} jour${n>1?'s':''} repris, ${now} présent${now>1?'s':''} aujourd'hui. Les anciennes clés <code>hab_*</code> sont conservées intactes.`
+    : `${now} jour${now>1?'s':''} d'habitudes. Les anciennes clés sont conservées intactes.`;
+  const lb = localStorage.getItem('full_backup_at');
+  document.getElementById('lastBackup').textContent = lb
+    ? 'Dernière sauvegarde manuelle : ' + new Date(lb).toLocaleString('fr-FR')
+    : 'Aucune sauvegarde manuelle pour l\'instant.';
+  if(window.cloudLoadHistory) window.cloudLoadHistory();
+}
+
+function refreshCloudUI(){
+  const st = (window.cloudTodo && window.cloudTodo.getState()) || { status:'offline', user:null };
+  const dots = [document.getElementById('cloudDotBig'), document.getElementById('cloudDotSettings'), document.getElementById('cloudDotBrand')];
+  dots.forEach(d=>{ if(d) d.className = 'cloud-dot ' + st.status; });
+
+  const main = document.getElementById('cloudStateMain'), sub = document.getElementById('cloudStateSub');
+  if(!main) return;
+  const LABELS = { idle:'Prêt', syncing:'Sauvegarde en cours…', synced:'Sauvegardé', offline:'Hors ligne', conflict:'Conflit à résoudre', error:'Erreur' };
+  if(st.user){
+    main.textContent = LABELS[st.status] || st.status;
+    sub.textContent = st.error ? st.error
+      : (st.lastSyncedAt ? 'Dernière sauvegarde à ' + new Date(st.lastSyncedAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : st.user.email || '');
+    document.getElementById('cloudLoginBtn').style.display  = 'none';
+    document.getElementById('cloudLogoutBtn').style.display = 'block';
+    document.getElementById('cloudHistoryWrap').style.display = 'block';
+  } else {
+    main.textContent = 'Non connecté';
+    sub.textContent  = 'Tes données ne sont que sur cet appareil';
+    document.getElementById('cloudLoginBtn').style.display  = 'block';
+    document.getElementById('cloudLogoutBtn').style.display = 'none';
+    document.getElementById('cloudHistoryWrap').style.display = 'none';
+  }
+}
+
+/* ─── Conflit : on montre, on ne tranche pas ─── */
+function describe(scope, d){
+  if(scope === 'habits'){
+    const days = Object.keys(d && d.days || {}).length;
+    const goals = Object.keys(d && d.goals || {}).length;
+    return `${days} jour${days>1?'s':''} tracké${days>1?'s':''}<br>${goals} objectif${goals>1?'s':''}`;
+  }
+  const tasks = (d && d.tasks || []).filter(t=>!t.completedAt).length;
+  const done  = (d && d.tasks || []).filter(t=>t.completedAt).length;
+  const cats  = (d && d.cats  || []).length;
+  return `${tasks} tâche${tasks>1?'s':''} en cours<br>${done} terminée${done>1?'s':''} · ${cats} catégorie${cats>1?'s':''}`;
+}
+
+function showConflict(scope, conflict){
+  conflictPayload = conflict; conflictScope = scope; conflictChoice = null;
+  const label = scope === 'habits' ? 'habitudes' : 'tâches';
+  document.querySelector('#conflictOverlay .modal-desc').textContent =
+    `Tes ${label} diffèrent entre cet appareil et le cloud. Choisis laquelle garder — rien ne sera écrasé avant ton choix.`;
+  document.getElementById('conflictCards').innerHTML = `
+    <div class="conflict-card" id="cardLocal" onclick="pickConflict('local')">
+      <div class="conflict-title"><span>Cet appareil</span></div>
+      <div class="conflict-meta">${describe(scope, conflict.local)}</div>
+    </div>
+    <div class="conflict-card" id="cardRemote" onclick="pickConflict('remote')">
+      <div class="conflict-title"><span>Le cloud</span></div>
+      <div class="conflict-meta">${describe(scope, conflict.remote)}<br>modifié le ${new Date(conflict.remoteUpdatedAt).toLocaleString('fr-FR')}</div>
+    </div>`;
+  const btn = document.getElementById('conflictConfirm');
+  btn.disabled = true; btn.style.opacity = '.4'; btn.textContent = 'Choisis une version';
+  document.getElementById('conflictOverlay').classList.add('open');
+}
+function pickConflict(c){
+  conflictChoice = c;
+  document.getElementById('cardLocal').classList.toggle('picked', c==='local');
+  document.getElementById('cardRemote').classList.toggle('picked', c==='remote');
+  const btn = document.getElementById('conflictConfirm');
+  btn.disabled = false; btn.style.opacity = '1';
+  btn.textContent = c==='local' ? 'Garder cet appareil' : 'Garder le cloud';
+}
+async function applyConflictChoice(){
+  if(!conflictChoice) return;
+  const store = conflictScope === 'habits' ? window.cloudHabits : window.cloudTodo;
+  const data  = conflictChoice === 'remote' ? conflictPayload.remote : conflictPayload.local;
+  await store.resolveConflict(conflictChoice, data);
+  if(conflictScope === 'habits') setHabitsData(data); else setTodoData(data);
+  document.getElementById('conflictOverlay').classList.remove('open');
+  showSync('Version appliquée ✓','success');
+  conflictPayload = null; conflictChoice = null; conflictScope = null;
+}
+
+/* ─── Sauvegarde complète : tout le localStorage ─── */
+function buildFullBackup(){
+  const dump = {};
+  for(let i=0; i<localStorage.length; i++){
+    const k = localStorage.key(i);
+    if(k === 'cfg_token') continue;               // on n'exporte pas le secret
+    dump[k] = localStorage.getItem(k);
+  }
+  const days = Object.keys(dump).filter(k=>k.startsWith('hab_')).length;
+  return { json: JSON.stringify({ exportedAt:new Date().toISOString(), localStorage:dump }, null, 2), days, keys:Object.keys(dump).length };
+}
+
+function markBackup(){
+  localStorage.setItem('full_backup_at', new Date().toISOString());
+  const el = document.getElementById('lastBackup');
+  if(el) el.textContent = 'Dernière sauvegarde manuelle : ' + new Date().toLocaleString('fr-FR');
+}
+
+/* Voie fiable sur iPhone : le presse-papier. Aucun téléchargement en jeu. */
+async function copyEverything(){
+  const b = buildFullBackup();
+  try {
+    await navigator.clipboard.writeText(b.json);
+    markBackup();
+    alert(`Copié.\n\n${b.keys} clés, dont ${b.days} jours d'habitudes.\n\nColle maintenant dans Notes ou dans un mail que tu t'envoies.`);
+  } catch(e){
+    // Certains contextes refusent l'accès au presse-papier : on affiche le texte à copier à la main.
+    const w = window.open('', '_blank');
+    if(w){ w.document.write('<pre style="font:12px monospace;white-space:pre-wrap;word-break:break-all">'+b.json.replace(/</g,'&lt;')+'</pre>'); markBackup(); }
+    else alert('Copie impossible. Essaie le téléchargement en fichier.');
+  }
+}
+
+function exportEverything(){
+  const b = buildFullBackup();
+  const blob = new Blob([b.json], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `habits-sauvegarde-complete-${todayKey()}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  markBackup();
+  showSync('Sauvegarde téléchargée ✓','success');
+}
+
+['cloudOverlay','conflictOverlay'].forEach(id=>{
+  document.getElementById(id).addEventListener('click', e=>{
+    if(e.target.id===id) document.getElementById(id).classList.remove('open');
+  });
+});
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CLOUD-STORE — module partagé, chargé SANS modification.
+     L'import map résout '@supabase/supabase-js' vers un CDN ESM,
+     ce qui permet d'utiliser cloud-store.js tel quel sans build.
+     ═══════════════════════════════════════════════════════════ -->
+<script type="importmap">
+{ "imports": { "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.49.4" } }
+</script>
+
+<script type="module">
+import { createStore } from './cloud-store.js';
+
+const SUPABASE_URL = 'https://jeswhkztvduhhqmihlkj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_TQwDRZLXCZjVe59Qf0ykEQ_8a01A4F7';
+
+// Un projet, une table, un appId par app — comme le prescrit le doc.
+const habitsStore = createStore({
+  appId: 'habits',
+  supabaseUrl: SUPABASE_URL,
+  supabaseAnonKey: SUPABASE_ANON_KEY,
+  storageKey: 'habits_data',
+  isEmpty: d => !d || (Object.keys(d.days||{}).length === 0 && Object.keys(d.goals||{}).length === 0),
+});
+
+const todoStore = createStore({
+  appId: 'habits-todo',
+  supabaseUrl: SUPABASE_URL,
+  supabaseAnonKey: SUPABASE_ANON_KEY,
+  storageKey: 'todo_data',
+  isEmpty: d => !d || ((d.tasks||[]).length === 0 && (d.cats||[]).length === 0),
+});
+
+window.cloudHabits = habitsStore;
+window.cloudTodo   = todoStore;
+
+habitsStore.subscribe(()=> window.refreshCloudUI && window.refreshCloudUI());
+todoStore.subscribe(()=> window.refreshCloudUI && window.refreshCloudUI());
+
+window.cloudLogin = async () => {
+  try { await todoStore.signInWithGoogle(window.location.origin); }
+  catch(e){ window.showSync('Connexion impossible ✗','error'); console.error(e); }
+};
+window.cloudLogout = async () => {
+  // flush AVANT signOut, sinon la dernière modification ne part jamais.
+  await habitsStore.flush(); await todoStore.flush();
+  await habitsStore.signOut(); await todoStore.signOut();
+  window.refreshCloudUI();
+  window.showSync('Déconnecté','');
+};
+
+window.cloudLoadHistory = async () => {
+  const el = document.getElementById('cloudHistory');
+  if(!el) return;
+  try {
+    const rows = await todoStore.history(10);
+    el.innerHTML = rows.length ? rows.map(r=>`
+      <div class="hist-row">
+        <div class="hist-info">
+          <div class="hist-date">${new Date(r.created_at).toLocaleString('fr-FR')}</div>
+          <div class="hist-ver">version ${r.version} · tâches</div>
+        </div>
+        <button class="hist-btn" onclick="cloudRestore('${r.id}')">Restaurer</button>
+      </div>`).join('')
+      : '<div class="field-hint">Aucune version archivée pour l\'instant.</div>';
+  } catch(e){ el.innerHTML = '<div class="field-hint">Historique indisponible.</div>'; }
+};
+
+window.cloudRestore = async (id) => {
+  if(!confirm('Revenir à cette version ?\nLa version actuelle sera archivée — tu pourras revenir en arrière.')) return;
+  try {
+    const data = await todoStore.restore(id);
+    window.setTodoData(data);
+    window.showSync('Version restaurée ✓','success');
+    window.cloudLoadHistory();
+  } catch(e){ window.showSync('Restauration impossible ✗','error'); }
+};
+
+/* ─── Démarrage : local d'abord, cloud ensuite ─── */
+(async () => {
+  try {
+    const user = await todoStore.currentUser();
+
+    if(user){
+      const h = await habitsStore.hydrate();
+      if(h.conflict)              window.showConflict('habits', h.conflict);
+      else if(h.applied === 'remote') window.setHabitsData(h.data);
+
+      const t = await todoStore.hydrate();
+      if(t.conflict)              window.showConflict('todo', t.conflict);
+      else if(t.applied === 'remote') window.setTodoData(t.data);
+    }
+
+    // Le cloud a parlé : on peut semer les catégories par défaut sans risque.
+    window.__cloudResolved = true;
+    window.seedTodoDefaults();
+    window.refreshCloudUI();
+  } catch(e){
+    console.error('cloud: démarrage échoué', e);
+    window.__cloudResolved = true;
+    window.seedTodoDefaults();
+  }
+})();
 </script>
 </body>
 </html>
