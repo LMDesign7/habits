@@ -391,6 +391,35 @@
   .instructions ol { margin-top: 12px; padding-left: 20px; font-size: 12px; color: var(--text-dim); line-height: 2; }
   .instructions a { color: var(--accent); text-decoration: none; }
 
+  /* ─── Bouton d'ajout flottant ───
+     Placé AU-DESSUS de la pilule, aligné sur son bord droit : la pilule
+     occupe presque toute la largeur, un bouton au ras du bord la heurterait. */
+  .fab {
+    position: fixed;
+    right: max(16px, calc((100vw - 420px) / 2));
+    bottom: calc(var(--nav-gap) + 70px);
+    width: 54px; height: 54px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    border: none; display: none; align-items: center; justify-content: center;
+    box-shadow: 0 8px 28px var(--accent-glow), 0 4px 14px rgba(0,0,0,0.5);
+    cursor: pointer; z-index: 140;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .fab.visible { display: flex; }
+  .fab:active { transform: scale(0.9); }
+
+  /* Sélecteur de catégorie en chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px; border-radius: var(--radius-pill);
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text-mid); font-family: 'Outfit', sans-serif;
+    font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+  }
+  .chip.selected { background: var(--accent-light); border-color: rgba(184,255,87,0.3); color: var(--accent); }
+  .chip:active { transform: scale(0.96); }
+
   /* ─── Sauvegarde cloud ─── */
   .cloud-dot {
     width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
@@ -487,10 +516,6 @@
 
   <div id="viewToday">
     <div class="tasks-list" id="todayList"></div>
-    <div class="add-row" onclick="this.querySelector('input').focus()">
-      <div class="add-plus"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
-      <input class="add-input" id="addTodayInput" placeholder="Ajouter une tâche" onkeydown="if(event.key==='Enter')addTaskToday(this)">
-    </div>
     <div class="done-toggle" id="doneToggle" onclick="toggleDoneSection()">
       <span class="chev">›</span><span id="doneLabel">Terminé aujourd'hui · 0</span>
     </div>
@@ -541,6 +566,34 @@
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
     Stats
   </button>
+</div>
+
+<button class="fab" id="fabAdd" onclick="openNewTask()" aria-label="Nouvelle tâche">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<!-- Nouvelle tâche -->
+<div class="overlay" id="newTaskOverlay">
+  <div class="modal">
+    <div class="modal-bar"></div>
+    <h2>Nouvelle tâche</h2>
+    <div class="field-group" style="margin-top:20px">
+      <label class="field-label">Quoi</label>
+      <input class="field-input big" type="text" id="ntTitle" placeholder="Relire le brief client" onkeydown="if(event.key==='Enter')saveNewTask()">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Catégorie</label>
+      <div class="chips" id="ntCats"></div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Quand</label>
+      <div class="chips">
+        <div class="chip selected" id="ntWhenToday" onclick="pickWhen(true)">Aujourd'hui</div>
+        <div class="chip" id="ntWhenLater" onclick="pickWhen(false)">Plus tard</div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveNewTask()">Ajouter</button>
+  </div>
 </div>
 
 <div class="sync-bar" id="syncBar"><div class="sync-dot"></div><span id="syncText"></span></div>
@@ -726,6 +779,8 @@ function switchTab(tab) {
     document.getElementById(t).classList.toggle('active', k===tab);
   });
   document.querySelector('.app-scroll').scrollTop = 0;
+  // Le bouton d'ajout n'existe que là où ajouter est l'action principale.
+  document.getElementById('fabAdd').classList.toggle('visible', tab==='tasks');
   // Recalculé à chaque visite : c'est local, instantané, et toujours à jour.
   if (tab==='stats') loadStats();
   if (tab==='tasks') renderTodo();
@@ -1019,7 +1074,7 @@ function renderTodayView(){
     const anyToday = doneTodayTasks().length > 0;
     list.innerHTML = anyToday
       ? `<div class="empty celebrate"><div class="empty-emoji">✓</div><div class="empty-title">Tout est fait</div><div class="empty-sub">Rien d'autre pour aujourd'hui.<br>Profites-en.</div></div>`
-      : `<div class="empty"><div class="empty-emoji">◦</div><div class="empty-title">Rien pour aujourd'hui</div><div class="empty-sub">Écris ta première tâche ci-dessous,<br>ou pioche dans tes catégories.</div></div>`;
+      : `<div class="empty"><div class="empty-emoji">◦</div><div class="empty-title">Rien pour aujourd'hui</div><div class="empty-sub">Appuie sur le bouton vert pour ajouter,<br>ou pioche dans tes catégories.</div></div>`;
   } else {
     list.innerHTML = tasks.map(t=>taskRowHTML(t,{showCat:true})).join('');
   }
@@ -1122,12 +1177,54 @@ function undoDone(){
   undoTaskId = null; hideUndo(); renderTodo();
 }
 
-function addTaskToday(input){
-  const v = input.value.trim(); if(!v) return;
-  const catId = todo.cats[0] ? todo.cats[0].id : null;
+/* ─── Nouvelle tâche (bouton flottant) ───
+   L'ajout inline reste dans chaque catégorie, où le contexte donne
+   déjà la réponse. Ici on choisit explicitement — plus d'atterrissage
+   silencieux dans la première catégorie venue. */
+let ntCatId = null, ntToday = true;
+
+function openNewTask(){
+  if(!todo.cats.length){ alert('Crée d\'abord une catégorie dans l\'onglet Catégories.'); return; }
+  // Pré-sélection selon le contexte : la catégorie ouverte, sinon la première.
+  const ouverte = document.querySelector('#viewCats .cat-block.open');
+  const surCats = document.getElementById('viewCats').style.display !== 'none';
+  ntCatId = (surCats && ouverte) ? ouverte.id.replace('cat-','') : todo.cats[0].id;
+  ntToday = !surCats;                       // depuis Aujourd'hui → daté du jour
+  document.getElementById('ntTitle').value = '';
+  renderNtCats(); pickWhen(ntToday);
+  document.getElementById('newTaskOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('ntTitle').focus(), 350);
+}
+
+function renderNtCats(){
+  document.getElementById('ntCats').innerHTML = todo.cats.map(c=>
+    `<div class="chip${c.id===ntCatId?' selected':''}" onclick="pickNtCat('${c.id}')">
+       <i class="cat-dot" style="background:${c.color}"></i>${escapeHtml(c.name)}
+     </div>`).join('');
+}
+function pickNtCat(id){ ntCatId = id; renderNtCats(); }
+function pickWhen(t){
+  ntToday = t;
+  document.getElementById('ntWhenToday').classList.toggle('selected', t);
+  document.getElementById('ntWhenLater').classList.toggle('selected', !t);
+}
+
+function saveNewTask(){
+  const v = document.getElementById('ntTitle').value.trim();
+  if(!v){ document.getElementById('ntTitle').focus(); return; }
   const t = todayKey();
-  todo.tasks.push({ id:uid(), catId, parentId:null, title:v, scheduledFor:t, firstScheduledFor:t, completedAt:null, order:Date.now(), createdAt:new Date().toISOString() });
-  saveTodo(); input.value = ''; renderTodo();
+  todo.tasks.push({
+    id:uid(), catId:ntCatId, parentId:null, title:v,
+    scheduledFor: ntToday ? t : null,
+    firstScheduledFor: ntToday ? t : null,
+    completedAt:null, order:Date.now(), createdAt:new Date().toISOString()
+  });
+  saveTodo();
+  document.getElementById('newTaskOverlay').classList.remove('open');
+  renderTodo();
+  const cat = getCat(ntCatId);
+  showSync(ntToday ? 'Ajoutée à aujourd\'hui ✓' : `Ajoutée dans ${cat?cat.name:''} ✓`, 'success');
+  if(navigator.vibrate) navigator.vibrate(10);
 }
 
 function addTaskInCat(input, catId){
@@ -1705,7 +1802,7 @@ function exportEverything(){
   showSync('Sauvegarde téléchargée ✓','success');
 }
 
-['cloudOverlay','conflictOverlay'].forEach(id=>{
+['cloudOverlay','conflictOverlay','newTaskOverlay'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>{
     if(e.target.id===id) document.getElementById(id).classList.remove('open');
   });
