@@ -672,6 +672,10 @@
 
     <div id="cloudHistoryWrap" style="display:none">
       <div class="field-label" style="margin-top:26px">Versions précédentes</div>
+      <div class="segmented" style="margin:0 0 14px">
+        <button class="seg-btn active" id="histTabHabits" onclick="switchHistory('habits')">Habitudes</button>
+        <button class="seg-btn" id="histTabTodo" onclick="switchHistory('todo')">Tâches</button>
+      </div>
       <div id="cloudHistory"></div>
     </div>
 
@@ -864,16 +868,30 @@ function loadHabitsData(){
   if(!habitsData.goals) habitsData.goals = {};
 }
 function saveHabitsData(){
-  localStorage.setItem('habits_data', JSON.stringify(habitsData));
+  try { localStorage.setItem('habits_data', JSON.stringify(habitsData)); }
+  catch(e){ console.error('écriture habits_data impossible', e); showSync('Sauvegarde impossible ✗','error'); return; }
+  if(!cloudCanPush()){ pushQueue.habits = true; return; }
   if(window.cloudHabits) window.cloudHabits.save(habitsData);
 }
-// Remplace habitsData après une hydratation distante ou une restauration
+
+/* Remplace habitsData après une hydratation distante ou une restauration.
+   La forme est validée AVANT d'écrire : un {days:null} venu du distant
+   effaçait silencieusement 596 jours, sur le disque comme en mémoire. */
 function setHabitsData(d){
-  habitsData = d && d.days ? d : { days:{}, goals:{} };
-  if(!habitsData.goals) habitsData.goals = {};
-  localStorage.setItem('habits_data', JSON.stringify(habitsData));
+  const ok = d && typeof d === 'object' && !Array.isArray(d)
+          && d.days && typeof d.days === 'object' && !Array.isArray(d.days);
+  if(!ok){
+    console.error('forme distante invalide (habitudes)', d);
+    showSync('Données distantes illisibles ✗','error');
+    return false;
+  }
+  habitsData = d;
+  if(!habitsData.goals || typeof habitsData.goals !== 'object') habitsData.goals = {};
+  try { localStorage.setItem('habits_data', JSON.stringify(habitsData)); }
+  catch(e){ console.error(e); showSync('Sauvegarde impossible ✗','error'); }
   loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
-  if(statsLoaded) renderStats();
+  if(statsLoaded) loadStats();
+  return true;
 }
 
 function loadState() { state = habitsData.days[toSheetDate(selectedDate)] || {}; }
@@ -942,6 +960,23 @@ let todo = { cats: [], tasks: [] };
 let editingCatId = null, editingTaskId = null, pendingColor = CAT_COLORS[0];
 let undoTimer = null, undoTaskId = null;
 
+/* ═══════════════════════════════════════════════════════════
+   VERROU D'ÉCRITURE DISTANTE
+   cloud-store démarre avec baseVersion = null, et null est la valeur
+   qui dit au serveur « écrase sans vérifier ». Tant que hydrate() n'a
+   pas répondu, tout push part donc sans contrôle de version et peut
+   remplacer 596 jours par ce que contient ce téléphone.
+   Rien ne part vers le cloud tant que l'hydratation n'a pas parlé,
+   ni tant qu'un conflit est ouvert. L'écriture locale, elle, continue.
+   ═══════════════════════════════════════════════════════════ */
+let cloudPushArmed = false;
+let rolloverCanPersist = false;
+const pushQueue = { habits:false, todo:false };
+let conflictPayload = null, conflictChoice = null, conflictScope = null;
+let conflictQueue = [];
+
+function cloudCanPush(){ return cloudPushArmed && !conflictPayload; }
+
 // ─── Dates ───
 function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000); }
@@ -966,26 +1001,43 @@ function seedTodoDefaults(){
     { id:uid(), name:'Chaîne YouTube',    color:CAT_COLORS[1], order:1 },
     { id:uid(), name:'Projet de ma sœur', color:CAT_COLORS[2], order:2 },
   ];
-  saveTodo(); renderTodo();
+  // Écriture locale seulement : pousser trois catégories vides par-dessus
+  // un vrai jeu de tâches distant est exactement ce qu'on veut éviter.
+  try { localStorage.setItem('todo_data', JSON.stringify(todo)); } catch(e){ console.error(e); }
+  renderTodo();
 }
 
 function saveTodo(){
-  localStorage.setItem('todo_data', JSON.stringify(todo));
+  try { localStorage.setItem('todo_data', JSON.stringify(todo)); }
+  catch(e){ console.error('écriture todo_data impossible', e); showSync('Sauvegarde impossible ✗','error'); return; }
+  if(!cloudCanPush()){ pushQueue.todo = true; return; }
   if(window.cloudTodo) window.cloudTodo.save(todo);
 }
+
 // Remplace todo après une hydratation distante ou une restauration
 function setTodoData(d){
-  todo = (d && d.tasks) ? d : { cats:[], tasks:[] };
-  if(!todo.cats) todo.cats = [];
-  if(!todo.tasks) todo.tasks = [];
-  localStorage.setItem('todo_data', JSON.stringify(todo));
+  const ok = d && typeof d === 'object' && !Array.isArray(d)
+          && Array.isArray(d.tasks) && Array.isArray(d.cats);
+  if(!ok){
+    console.error('forme distante invalide (tâches)', d);
+    showSync('Données distantes illisibles ✗','error');
+    return false;
+  }
+  todo = d;
+  try { localStorage.setItem('todo_data', JSON.stringify(todo)); }
+  catch(e){ console.error(e); showSync('Sauvegarde impossible ✗','error'); }
   renderTodo();
+  return true;
 }
 
 // ─── Rollover : on ne compte pas, on calcule ───
 // scheduledFor avance au jour même ; firstScheduledFor ne bouge jamais.
 // Le "·N" est donc toujours le nombre réel de jours de retard,
 // que l'app ait été ouverte ou non. Impossible à faire dériver.
+/* Le report s'applique en mémoire dès le chargement, mais n'est PERSISTÉ
+   qu'une fois le cloud consulté. Sinon il modifie todo_data avant que
+   hydrate() ne le lise, et le premier lancement de chaque journée ouvre
+   une modale de conflit sur des données pourtant identiques. */
 function runRollover(){
   const t = todayKey(); let changed = false;
   todo.tasks.forEach(task=>{
@@ -995,7 +1047,8 @@ function runRollover(){
       changed = true;
     }
   });
-  if(changed) saveTodo();
+  if(changed && rolloverCanPersist) saveTodo();
+  return changed;
 }
 function rollDays(task){
   if(!task.firstScheduledFor || !task.scheduledFor) return 0;
@@ -1599,14 +1652,21 @@ document.getElementById('overlay').addEventListener('click',e=>{ if(e.target.id=
 // ═══════════════════════════════════════
 loadHabitsData();
 loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
-loadTodo(); runRollover(); renderTodo();
+loadTodo(); renderTodo();     // le report s'applique en mémoire, sans écrire
 
-/* Filet : si le module cloud ne se charge pas (CDN injoignable, navigateur
-   sans import maps), l'app doit rester pleinement utilisable hors ligne. */
-setTimeout(()=>{ if(!window.__cloudResolved) seedTodoDefaults(); }, 4000);
+/* Filet : uniquement si le module cloud est réellement absent (CDN
+   injoignable, navigateur sans import maps). S'il est chargé mais lent,
+   on l'attend — sinon le filet fait la course avec le réseau et gagne. */
+setTimeout(()=>{
+  if(window.__cloudResolved || window.cloudTodo) return;
+  console.warn('module cloud absent : démarrage hors ligne');
+  finishBoot(false);
+}, 4000);
 
 // Demande au navigateur de ne pas évincer les données (Safari efface après 7 j d'inactivité)
-if(navigator.storage && navigator.storage.persist) navigator.storage.persist();
+if(navigator.storage && navigator.storage.persist){
+  navigator.storage.persist().catch(()=>{});
+}
 
 // Le rollover doit tourner au retour dans l'app, pas seulement au chargement
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ runRollover(); renderTodo(); } });
@@ -1616,7 +1676,30 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ runRol
    SAUVEGARDE — interface
    Le câblage Supabase est dans le <script type="module"> plus bas.
    ═══════════════════════════════════════════════════════════ */
-let conflictPayload = null, conflictChoice = null, conflictScope = null;
+/* Fin de démarrage — un seul point de sortie, qu'il y ait eu du cloud ou non.
+   C'est ici seulement qu'on autorise les écritures distantes. */
+function finishBoot(hasCloud){
+  window.__cloudResolved = true;
+  rolloverCanPersist = true;
+  seedTodoDefaults();
+  if(runRollover()) renderTodo();
+
+  cloudPushArmed = !!hasCloud;
+
+  // Ne rejouer la sauvegarde mise en attente QUE si l'hydratation n'a pas
+  // ouvert de conflit. Sinon on repousserait le local par-dessus le distant
+  // au moment même où l'on demande à l'utilisateur lequel garder.
+  if(cloudPushArmed && !conflictPayload){
+    if(pushQueue.habits && window.cloudHabits) window.cloudHabits.save(habitsData);
+    if(pushQueue.todo   && window.cloudTodo)   window.cloudTodo.save(todo);
+    pushQueue.habits = pushQueue.todo = false;
+  }
+  // En cas de conflit, la file est abandonnée : c'est applyConflictChoice
+  // qui décidera de ce qui part, une fois que l'utilisateur aura tranché.
+  if(conflictPayload) pushQueue.habits = pushQueue.todo = false;
+
+  refreshCloudUI();
+}
 
 function openCloud(){
   document.getElementById('cloudOverlay').classList.add('open');
@@ -1638,7 +1721,13 @@ function openCloud(){
 }
 
 function refreshCloudUI(){
-  const st = (window.cloudTodo && window.cloudTodo.getState()) || { status:'offline', user:null };
+  // La pastille ne lisait que les tâches : les habitudes pouvaient être
+  // bloquées en conflit depuis des jours avec un point vert à l'écran.
+  // On remonte toujours le pire des deux états.
+  const RANG = { error:5, conflict:4, offline:3, syncing:2, idle:1, synced:0 };
+  const a = (window.cloudHabits && window.cloudHabits.getState()) || { status:'offline', user:null };
+  const b = (window.cloudTodo   && window.cloudTodo.getState())   || { status:'offline', user:null };
+  const st = (RANG[a.status]||0) >= (RANG[b.status]||0) ? a : b;
   const dots = [document.getElementById('cloudDotBig'), document.getElementById('cloudDotSettings'), document.getElementById('cloudDotBrand')];
   dots.forEach(d=>{ if(d) d.className = 'cloud-dot ' + st.status; });
 
@@ -1675,6 +1764,12 @@ function describe(scope, d){
 }
 
 function showConflict(scope, conflict){
+  // Deux conflits peuvent arriver coup sur coup (habitudes puis tâches).
+  // Sans file, le second écrasait le premier et le store restait bloqué.
+  if(conflictPayload){
+    if(!conflictQueue.some(c=>c[0]===scope)) conflictQueue.push([scope, conflict]);
+    return;
+  }
   conflictPayload = conflict; conflictScope = scope; conflictChoice = null;
   const label = scope === 'habits' ? 'habitudes' : 'tâches';
   document.querySelector('#conflictOverlay .modal-desc').textContent =
@@ -1702,13 +1797,41 @@ function pickConflict(c){
 }
 async function applyConflictChoice(){
   if(!conflictChoice) return;
-  const store = conflictScope === 'habits' ? window.cloudHabits : window.cloudTodo;
-  const data  = conflictChoice === 'remote' ? conflictPayload.remote : conflictPayload.local;
-  await store.resolveConflict(conflictChoice, data);
-  if(conflictScope === 'habits') setHabitsData(data); else setTodoData(data);
+  const scope = conflictScope, choice = conflictChoice, payload = conflictPayload;
+  const store = scope === 'habits' ? window.cloudHabits : window.cloudTodo;
+  const data   = choice === 'remote' ? payload.remote : payload.local;
+  const perdue = choice === 'remote' ? payload.local  : payload.remote;
+
+  // La version écartée n'est archivée nulle part par le serveur quand on
+  // choisit « le cloud ». On la garde en local avant de trancher.
+  try {
+    localStorage.setItem(`conflit_ecarte_${scope}_${Date.now()}`, JSON.stringify(perdue));
+  } catch(e){ console.error('archive du perdant impossible', e); }
+
+  const btn = document.getElementById('conflictConfirm');
+  btn.disabled = true; btn.textContent = 'Application…';
+
+  try {
+    // Écrase le `pending` de cloud-store par la version retenue : sinon
+    // le prochain flush repoussait la version que l'on vient d'écarter.
+    store.save(data);
+    await store.resolveConflict(choice, data);
+    await store.flush();
+  } catch(e){
+    console.error('résolution impossible', e);
+    showSync('Résolution impossible ✗','error');
+    btn.disabled = false; btn.textContent = choice==='local' ? 'Garder cet appareil' : 'Garder le cloud';
+    return;
+  }
+
+  conflictPayload = null; conflictChoice = null; conflictScope = null;
+  if(scope === 'habits') setHabitsData(data); else setTodoData(data);
   document.getElementById('conflictOverlay').classList.remove('open');
   showSync('Version appliquée ✓','success');
-  conflictPayload = null; conflictChoice = null; conflictScope = null;
+
+  const next = conflictQueue.shift();
+  if(next) setTimeout(()=>showConflict(next[0], next[1]), 450);
+  else refreshCloudUI();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1720,6 +1843,8 @@ async function applyConflictChoice(){
    présent sur cet appareil n'est jamais remplacé.
    ═══════════════════════════════════════════════════════════ */
 async function importFromSheets(){
+  if(!window.__cloudResolved){ alert('Attends une seconde que la sauvegarde ait fini de se synchroniser.'); return; }
+  if(conflictPayload){ alert('Résous d\'abord le conflit en cours.'); return; }
   const avant = Object.keys(habitsData.days).length;
   if(!confirm(`Importer l'historique 2025 + 2026 ?\n\nTu as ${avant} jours sur cet appareil.\nLe fichier en contient 596.\n\nAucun jour existant ne sera remplacé.`)) return;
 
@@ -1802,7 +1927,9 @@ function exportEverything(){
   showSync('Sauvegarde téléchargée ✓','success');
 }
 
-['cloudOverlay','conflictOverlay','newTaskOverlay'].forEach(id=>{
+// conflictOverlay volontairement absent : un conflit doit être tranché,
+// pas congédié d'un clic à côté.
+['cloudOverlay','newTaskOverlay'].forEach(id=>{
   document.getElementById(id).addEventListener('click', e=>{
     if(e.target.id===id) document.getElementById(id).classList.remove('open');
   });
@@ -1838,14 +1965,33 @@ const todoStore = createStore({
   supabaseUrl: SUPABASE_URL,
   supabaseAnonKey: SUPABASE_ANON_KEY,
   storageKey: 'todo_data',
-  isEmpty: d => !d || ((d.tasks||[]).length === 0 && (d.cats||[]).length === 0),
+  // Les catégories seules ne sont pas une donnée : trois catégories vides
+  // ne doivent jamais pouvoir écraser un vrai jeu de tâches distant.
+  isEmpty: d => !d || (d.tasks||[]).length === 0,
 });
 
 window.cloudHabits = habitsStore;
 window.cloudTodo   = todoStore;
 
-habitsStore.subscribe(()=> window.refreshCloudUI && window.refreshCloudUI());
-todoStore.subscribe(()=> window.refreshCloudUI && window.refreshCloudUI());
+/* Un conflit levé par flush() (code 40001) n'était relié à rien : le store
+   restait bloqué, la pastille rouge, et plus rien ne partait vers le cloud.
+   On rejoue hydrate() pour reposer le conflit proprement dans la modale. */
+function watch(store, scope){
+  let busy = false;
+  store.subscribe(async st => {
+    window.refreshCloudUI && window.refreshCloudUI();
+    if(st.status === 'conflict' && !busy && window.__cloudResolved){
+      busy = true;
+      try {
+        const r = await store.hydrate();
+        if(r.conflict) window.showConflict(scope, r.conflict);
+      } catch(e){ console.error(e); }
+      finally { busy = false; }
+    }
+  });
+}
+watch(habitsStore, 'habits');
+watch(todoStore, 'todo');
 
 window.cloudLogin = async () => {
   try { await todoStore.signInWithGoogle(window.location.origin); }
@@ -1859,56 +2005,74 @@ window.cloudLogout = async () => {
   window.showSync('Déconnecté','');
 };
 
+/* L'historique existait côté serveur pour les DEUX apps, mais seule
+   celle des tâches était atteignable. Les 596 jours d'habitudes — le
+   seul jeu irremplaçable — étaient les seuls sans marche arrière. */
+let histScope = 'habits';
+
+window.switchHistory = (s) => {
+  histScope = s;
+  document.getElementById('histTabHabits').classList.toggle('active', s==='habits');
+  document.getElementById('histTabTodo').classList.toggle('active', s==='todo');
+  window.cloudLoadHistory();
+};
+
 window.cloudLoadHistory = async () => {
   const el = document.getElementById('cloudHistory');
   if(!el) return;
+  const store = histScope === 'habits' ? habitsStore : todoStore;
+  const mot   = histScope === 'habits' ? 'habitudes' : 'tâches';
+  el.innerHTML = '<div class="field-hint">Lecture…</div>';
   try {
-    const rows = await todoStore.history(10);
+    const rows = await store.history(10);
     el.innerHTML = rows.length ? rows.map(r=>`
       <div class="hist-row">
         <div class="hist-info">
           <div class="hist-date">${new Date(r.created_at).toLocaleString('fr-FR')}</div>
-          <div class="hist-ver">version ${r.version} · tâches</div>
+          <div class="hist-ver">version ${r.version} · ${mot}</div>
         </div>
-        <button class="hist-btn" onclick="cloudRestore('${r.id}')">Restaurer</button>
+        <button class="hist-btn" onclick="cloudRestore('${r.id}','${histScope}')">Restaurer</button>
       </div>`).join('')
-      : '<div class="field-hint">Aucune version archivée pour l\'instant.</div>';
+      : `<div class="field-hint">Aucune version de ${mot} archivée pour l'instant. L'historique se remplit dès qu'une version en remplace une autre.</div>`;
   } catch(e){ el.innerHTML = '<div class="field-hint">Historique indisponible.</div>'; }
 };
 
-window.cloudRestore = async (id) => {
-  if(!confirm('Revenir à cette version ?\nLa version actuelle sera archivée — tu pourras revenir en arrière.')) return;
+window.cloudRestore = async (id, scope) => {
+  const mot = scope === 'habits' ? 'tes habitudes' : 'tes tâches';
+  if(!confirm(`Revenir à cette version de ${mot} ?\n\nLa version actuelle sera archivée — tu pourras revenir en arrière.`)) return;
+  const store = scope === 'habits' ? habitsStore : todoStore;
   try {
-    const data = await todoStore.restore(id);
-    window.setTodoData(data);
+    const data = await store.restore(id);
+    const ok = scope === 'habits' ? window.setHabitsData(data) : window.setTodoData(data);
+    if(!ok) return;                       // forme invalide : rien n'a été écrit
     window.showSync('Version restaurée ✓','success');
     window.cloudLoadHistory();
-  } catch(e){ window.showSync('Restauration impossible ✗','error'); }
+  } catch(e){ console.error(e); window.showSync('Restauration impossible ✗','error'); }
 };
 
 /* ─── Démarrage : local d'abord, cloud ensuite ─── */
 (async () => {
   try {
+    // Une seule instance rafraîchit le jeton : deux clients Supabase sur la
+    // même origine se disputent le refresh token et finissent par le griller.
+    try { habitsStore.supabase.auth.stopAutoRefresh(); } catch(e){}
+
     const user = await todoStore.currentUser();
 
     if(user){
       const h = await habitsStore.hydrate();
-      if(h.conflict)              window.showConflict('habits', h.conflict);
+      if(h.conflict)                  window.showConflict('habits', h.conflict);
       else if(h.applied === 'remote') window.setHabitsData(h.data);
 
       const t = await todoStore.hydrate();
-      if(t.conflict)              window.showConflict('todo', t.conflict);
+      if(t.conflict)                  window.showConflict('todo', t.conflict);
       else if(t.applied === 'remote') window.setTodoData(t.data);
     }
 
-    // Le cloud a parlé : on peut semer les catégories par défaut sans risque.
-    window.__cloudResolved = true;
-    window.seedTodoDefaults();
-    window.refreshCloudUI();
+    window.finishBoot(true);
   } catch(e){
     console.error('cloud: démarrage échoué', e);
-    window.__cloudResolved = true;
-    window.seedTodoDefaults();
+    window.finishBoot(false);
   }
 })();
 </script>
