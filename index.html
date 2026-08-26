@@ -607,6 +607,11 @@
       <div id="cloudHistory"></div>
     </div>
 
+    <div class="field-label" style="margin-top:26px">Récupérer l'historique</div>
+    <button class="ghost-btn" onclick="importFromSheets()">Importer l'historique 2025 + 2026</button>
+    <div class="field-hint" style="margin-top:8px">596 jours issus de tes deux Google Sheets, fusionnés par nom de colonne. Ne comble que les trous — un jour déjà présent n'est jamais remplacé.</div>
+    <div class="field-hint" id="importInfo" style="margin-top:8px"></div>
+
     <div class="field-label" style="margin-top:26px">Sauvegarde manuelle</div>
     <button class="ghost-btn" onclick="copyEverything()">Copier tout dans le presse-papier</button>
     <button class="ghost-btn" onclick="exportEverything()">Télécharger en fichier</button>
@@ -676,6 +681,14 @@ const HABITS = [
   { id:'eau',        name:"1,5L d'eau",        icon:'💧', col:"1,5L d'eau" },
   { id:'skincare',   name:'Skincare',          icon:'✨', col:'Skincare' },
   { id:'airdrop',    name:'Airdrop',           icon:'🪂', col:'Airdrop' },
+];
+
+/* Habitudes suivies en 2025 puis abandonnées. Leurs données sont
+   importées et conservées ; elles n'apparaissent pas dans la liste
+   du jour et ne comptent pas dans la progression quotidienne. */
+const HABITS_ARCHIVED = [
+  { id:'petitdej', name:'Petit déjeuner', icon:'🥐', col:'Petit déjeuner', archived:true },
+  { id:'alcool',   name:"Pas d'alcool",   icon:'🚫', col:"Pas d'alcool",   archived:true },
 ];
 
 let state = {}, selectedDate = new Date(), syncTimeout = null, statsLoaded = false, statsData = null;
@@ -1466,6 +1479,10 @@ function openCloud(){
   document.getElementById('migrationInfo').innerHTML = n
     ? `Migration : ${n} jour${n>1?'s':''} repris, ${now} présent${now>1?'s':''} aujourd'hui. Les anciennes clés <code>hab_*</code> sont conservées intactes.`
     : `${now} jour${now>1?'s':''} d'habitudes. Les anciennes clés sont conservées intactes.`;
+  const imp = localStorage.getItem('history_imported_at');
+  document.getElementById('importInfo').textContent = imp
+    ? 'Historique importé le ' + new Date(imp).toLocaleString('fr-FR')
+    : 'Historique 2025-2026 pas encore importé.';
   const lb = localStorage.getItem('full_backup_at');
   document.getElementById('lastBackup').textContent = lb
     ? 'Dernière sauvegarde manuelle : ' + new Date(lb).toLocaleString('fr-FR')
@@ -1545,6 +1562,53 @@ async function applyConflictChoice(){
   document.getElementById('conflictOverlay').classList.remove('open');
   showSync('Version appliquée ✓','success');
   conflictPayload = null; conflictChoice = null; conflictScope = null;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   IMPORT DE L'HISTORIQUE 2025 + 2026
+   Source : les deux Google Sheets, fusionnés hors ligne par nom
+   de colonne (jamais par position — les colonnes ne sont pas
+   alignées entre les deux années).
+   Règle : le fichier ne comble que les trous. Un jour déjà
+   présent sur cet appareil n'est jamais remplacé.
+   ═══════════════════════════════════════════════════════════ */
+async function importFromSheets(){
+  const avant = Object.keys(habitsData.days).length;
+  if(!confirm(`Importer l'historique 2025 + 2026 ?\n\nTu as ${avant} jours sur cet appareil.\nLe fichier en contient 596.\n\nAucun jour existant ne sera remplacé.`)) return;
+
+  showSync('Import en cours…');
+  try {
+    const r = await fetch('./historique-2025-2026.json', { cache:'no-store' });
+    if(!r.ok) throw new Error('fichier introuvable');
+    const h = await r.json();
+    if(!h.days) throw new Error('format invalide');
+
+    let ajoutes = 0, completes = 0, intacts = 0;
+    for(const [date, vals] of Object.entries(h.days)){
+      const cur = habitsData.days[date];
+      if(cur && Object.keys(cur).length){
+        // Le jour existe déjà : on ne touche qu'aux habitudes absentes.
+        let touche = false;
+        for(const [k,v] of Object.entries(vals)) if(!(k in cur)){ cur[k] = v; touche = true; }
+        touche ? completes++ : intacts++;
+      } else {
+        habitsData.days[date] = vals; ajoutes++;
+      }
+    }
+
+    saveHabitsData();
+    localStorage.setItem('history_imported_at', new Date().toISOString());
+    const apres = Object.keys(habitsData.days).length;
+
+    renderWeek(); loadState(); renderHabits(); updateProgress();
+    openCloud();
+    alert(`Import terminé.\n\n${ajoutes} jours ajoutés\n${completes} jours complétés\n${intacts} jours laissés intacts\n\nTu passes de ${avant} à ${apres} jours.`);
+    showSync('Historique importé ✓','success');
+  } catch(e){
+    console.error(e);
+    showSync('Import impossible ✗','error');
+    alert('Import impossible : ' + e.message);
+  }
 }
 
 /* ─── Sauvegarde complète : tout le localStorage ─── */
