@@ -711,7 +711,8 @@ function switchTab(tab) {
     document.getElementById(t).classList.toggle('active', k===tab);
   });
   document.querySelector('.app-scroll').scrollTop = 0;
-  if (tab==='stats' && !statsLoaded) loadStats();
+  // Recalculé à chaque visite : c'est local, instantané, et toujours à jour.
+  if (tab==='stats') loadStats();
   if (tab==='tasks') renderTodo();
 }
 
@@ -1270,19 +1271,44 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<
 // ═══════════════════════════════════════
 // STATS (inchangé)
 // ═══════════════════════════════════════
-async function loadStats() {
-  const c=getConfig();
-  if(!c.url){ document.getElementById('statsContent').innerHTML='<div class="stats-loading">Configure ton Google Sheet dans ⚙️ pour voir les stats.</div>'; return; }
-  try {
-    const resp = await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'readAll',token:c.token,sheetId:c.id,sheetTab:c.tab})});
-    statsData = await resp.json();
-    if(!statsData.success) throw new Error(statsData.error);
-    statsLoaded = true;
-    document.getElementById('statsSub').textContent = `${statsData.totalDays} jours trackés`;
-    renderStats();
-  } catch(e) {
-    document.getElementById('statsContent').innerHTML=`<div class="stats-loading">Erreur : ${e.message}</div>`;
+/* Les stats sont construites depuis `habitsData` — les 596 jours importés
+   plus tout ce qui sera coché ensuite. Aucun appel réseau : la page ne peut
+   plus afficher de chiffres faux à cause d'une synchro en panne. */
+function statsHabits(){ return HABITS.concat(HABITS_ARCHIVED); }
+
+function sortDateKeys(keys){
+  // Les clés sont en "JJ.MM.AA" : un tri alphabétique serait faux.
+  return keys.slice().sort((a,b)=>{
+    const [ja,ma,aa]=a.split('.'), [jb,mb,ab]=b.split('.');
+    return (aa+ma+ja).localeCompare(ab+mb+jb);
+  });
+}
+
+function loadStats() {
+  const all = statsHabits();
+  const dates = sortDateKeys(Object.keys(habitsData.days));
+
+  statsData = {
+    habits: all.map(h=>h.col),
+    days: dates.map(d=>{
+      const o = habitsData.days[d] || {};
+      // -1 = non suivi ce jour-là : exclu des calculs, comme une case vide.
+      return { date:d, values: all.map(h => (h.id in o) ? (o[h.id]===1?1:0) : -1) };
+    }),
+    totalDays: dates.length,
+  };
+
+  statsLoaded = true;
+  const annees = [...new Set(dates.map(d=>'20'+d.slice(6,8)))].sort();
+  document.getElementById('statsSub').textContent =
+    dates.length ? `${dates.length} jours trackés · ${annees.join(' — ')}` : 'Aucune donnée pour l\'instant';
+
+  if(!dates.length){
+    document.getElementById('statsContent').innerHTML =
+      '<div class="stats-loading">Coche tes premières habitudes pour voir apparaître tes statistiques.</div>';
+    return;
   }
+  renderStats();
 }
 
 function renderStats() {
@@ -1295,9 +1321,9 @@ function renderStats() {
     let done=0, total=0;
     days.forEach(d => { if(d.values[idx]!==-1){ total++; if(d.values[idx]===1) done++; } });
     const pct = total>0 ? Math.round((done/total)*100) : 0;
-    const icon = HABITS.find(h=>h.col===name);
-    return { name, pct, emoji: icon?icon.icon:'📌', id: icon?icon.id:'' };
-  });
+    const icon = statsHabits().find(h=>h.col===name);
+    return { name, pct, total, emoji: icon?icon.icon:'📌', id: icon?icon.id:'', archived: !!(icon&&icon.archived) };
+  }).filter(r => r.total > 0);
 
   const goals = getGoals();
   rates.sort((a,b)=>b.pct-a.pct);
@@ -1307,11 +1333,12 @@ function renderStats() {
     const cls = r.pct>=70?'high':r.pct>=40?'mid':'low';
     const goalMarker = hasGoal ? `<div class="rate-goal-marker" style="left:${goal}%"><div class="rate-goal-label">${goal}%</div></div>` : '';
     const statusHTML = hasGoal ? `<div class="rate-status ${reached?'reached':'missed'}">${reached?'✓ Objectif atteint':'↑ Objectif : '+goal+'%'}</div>` : '';
-    ratesHTML += `<div class="rate-item">
+    ratesHTML += `<div class="rate-item"${r.archived?' style="opacity:.55"':''}>
       <div class="rate-emoji">${r.emoji}</div>
       <div class="rate-info">
-        <div class="rate-name"><span>${r.name}</span><span class="rate-pct">${r.pct}%</span></div>
+        <div class="rate-name"><span>${r.name}${r.archived?' <span style="font-size:10px;color:var(--text-dim);font-family:\'JetBrains Mono\',monospace">archivée</span>':''}</span><span class="rate-pct">${r.pct}%</span></div>
         <div class="rate-bar">${goalMarker}<div class="rate-bar-fill ${cls}" style="width:0%"></div></div>
+        <div class="rate-status missed" style="opacity:.7">${r.total} jours suivis</div>
         ${statusHTML}
       </div>
     </div>`;
@@ -1321,14 +1348,19 @@ function renderStats() {
   let heatHTML = '<div class="heatmap-card"><div class="section-label">Calendrier d\'activité</div>';
   heatHTML += '<div class="heatmap-filters">';
   heatHTML += '<select class="hm-select" id="hmMonth" onchange="renderHeatmap()">';
-  const curMonth = new Date().getMonth(), curYear = new Date().getFullYear();
-  for(let m=0; m<12; m++){
-    heatHTML += `<option value="${m}"${m===curMonth?' selected':''}>${MOIS[m].charAt(0).toUpperCase()+MOIS[m].slice(1)} ${curYear}</option>`;
-  }
+
+  // Les mois proposés viennent des données réelles — donc 2025 ET 2026.
+  const moisDispo = [...new Set(days.map(d=>'20'+d.date.slice(6,8)+'-'+d.date.slice(3,5)))].sort().reverse();
+  const now = new Date(), curKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  moisDispo.forEach(k=>{
+    const [y,m] = k.split('-');
+    const label = MOIS[parseInt(m)-1].charAt(0).toUpperCase()+MOIS[parseInt(m)-1].slice(1)+' '+y;
+    heatHTML += `<option value="${k}"${k===curKey?' selected':''}>${label}</option>`;
+  });
   heatHTML += '</select>';
   heatHTML += '<select class="hm-select" id="hmHabit" onchange="renderHeatmap()"><option value="all">Toutes</option>';
   habits.forEach((name, idx) => {
-    const icon = HABITS.find(h=>h.col===name);
+    const icon = statsHabits().find(h=>h.col===name);
     heatHTML += `<option value="${idx}">${icon?icon.icon+' ':''}${name}</option>`;
   });
   heatHTML += '</select></div><div id="heatmapGrid"></div></div>';
@@ -1347,9 +1379,10 @@ function renderStats() {
 function renderHeatmap() {
   if(!statsData) return;
   const grid = document.getElementById('heatmapGrid'); if(!grid) return;
-  const month = parseInt(document.getElementById('hmMonth').value);
+  const sel = document.getElementById('hmMonth').value;          // "2025-03"
+  const year = parseInt(sel.split('-')[0]), month = parseInt(sel.split('-')[1]) - 1;
   const habitFilter = document.getElementById('hmHabit').value;
-  const year = new Date().getFullYear(), today = new Date();
+  const today = new Date();
   const habits = statsData.habits, days = statsData.days;
 
   const dateScores = {};
@@ -1382,17 +1415,19 @@ function renderHeatmap() {
       if(s === 1) perfectDays++;
       let cls;
       if(habitFilter === 'all') {
-        const count = Math.round(s * habits.length);
-        if(count === 0) cls = 'l0'; else if(count <= 9) cls = 'l'+count; else cls = 'full';
+        // Niveau relatif aux habitudes réellement suivies ce jour-là, pas au
+        // total : les archivées et les nouvelles ne faussent plus l'échelle.
+        const lvl = Math.round(s * 10);
+        cls = lvl >= 10 ? 'full' : 'l' + lvl;
       } else { cls = s === 1 ? 'full' : 'l0'; }
       html += `<div class="hm-cell ${cls}">${d}</div>`;
     } else { html += `<div class="hm-cell l0">${d}</div>`; }
   }
   html += '</div>';
 
-  html += '<div class="heatmap-legend"><span class="heatmap-legend-label">0</span>';
+  html += '<div class="heatmap-legend"><span class="heatmap-legend-label">0%</span>';
   ['l0','l2','l3','l5','l6','l8','l9','full'].forEach(c => { html += `<div class="legend-cell hm-cell ${c}"></div>`; });
-  html += '<span class="heatmap-legend-label">10</span></div>';
+  html += '<span class="heatmap-legend-label">100%</span></div>';
 
   const avgPct = totalDaysWithData > 0 ? Math.round((totalScore/totalDaysWithData)*100) : 0;
   html += `<div class="heatmap-summary">
