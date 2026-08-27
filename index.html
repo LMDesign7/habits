@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Habits">
 <meta name="theme-color" content="#060608">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <title>Habits</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -43,6 +46,10 @@
     height: 100%; overflow: hidden;
     overscroll-behavior: none;
     -webkit-text-size-adjust: 100%;
+    /* La bande système du bug WebKit 301994 prend la couleur de fond de la
+       page (mise en cache, rafraîchie au relancement). En la peignant de la
+       couleur de l'app, elle se fond dans le décor au lieu de trancher. */
+    background: var(--bg);
   }
   body {
     font-family: 'Outfit', -apple-system, sans-serif;
@@ -59,14 +66,13 @@
      d'aucune unité de hauteur. */
   .app {
     position: fixed;
-    top: 0; right: 0; left: 0;
-    /* `bottom: 0` s'arrêtait à 873px pour un écran de 932 : en PWA installée
-       le viewport de mise en page n'atteint pas le bas de l'écran. `100vh`,
-       lui, vaut la hauteur MAXIMALE de l'écran sur iOS — c'est exactement
-       l'inverse de `dvh`, et c'est ce qui nous sauve ici.
-       Toute la barre du bas passe donc en `absolute` DANS cette boîte,
-       au lieu d'être fixée au viewport. */
-    height: 100vh;
+    top: 0; right: 0; bottom: 0; left: 0;
+    /* MESURÉ sur iPhone 16 Pro en PWA installée : viewport 873 pour un écran
+       de 932. Les 59px manquants sont irrécupérables en CSS — testé avec
+       `height:100vh`, qui donne bien une boîte de 932 mais dont iOS ne rend
+       jamais le bas : la nav y devient invisible. On s'aligne donc sur le
+       viewport réel. Le vrai correctif est de réinstaller la PWA, qui fige
+       sa configuration d'affichage au moment de l'ajout à l'écran d'accueil. */
     max-width: 520px;
     margin: 0 auto;
     display: flex; flex-direction: column;
@@ -505,9 +511,7 @@
 <div class="page active" id="pageHome">
   <div class="header">
     <div class="header-row">
-      <div class="brand">habits<span class="cloud-dot" id="cloudDotBrand"></span>
-        <span id="diag" style="display:block;font-size:9px;letter-spacing:0;color:#7a6a3a;margin-top:4px;text-transform:none"></span>
-      </div>
+      <div class="brand">habits<span class="cloud-dot" id="cloudDotBrand"></span></div>
       <button class="settings-btn" onclick="openSettings()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
       </button>
@@ -631,12 +635,6 @@
     <button class="save-btn" onclick="saveNewTask()">Ajouter</button>
   </div>
 </div>
-
-<!-- REPÈRES TEMPORAIRES
-     Lime  = bas de la coque (.app, en 100vh)  → doit toucher le bord de l'écran
-     Rouge = bas du viewport de mise en page   → devrait rester au-dessus -->
-<div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#b8ff57;z-index:999;pointer-events:none"></div>
-<div style="position:fixed;bottom:0;left:0;right:0;height:4px;background:#ff3b3b;z-index:998;pointer-events:none"></div>
 
 <div class="sync-bar" id="syncBar"><div class="sync-dot"></div><span id="syncText"></span></div>
 
@@ -1886,28 +1884,6 @@ setTimeout(()=>{
   console.warn('module cloud absent : démarrage hors ligne');
   finishBoot(false);
 }, 4000);
-
-/* DIAGNOSTIC TEMPORAIRE — à retirer une fois la nav calée.
-   Affiche les vraies mesures de l'appareil : impossible de les obtenir
-   autrement, aucun navigateur de bureau ne reproduit le mode standalone. */
-function majDiag(){
-  const el = document.getElementById('diag'); if(!el) return;
-  const cs = getComputedStyle(document.documentElement);
-  const app = document.querySelector('.app').getBoundingClientRect();
-  const nav = document.querySelector('.tab-bar').getBoundingClientRect();
-  const sab = cs.getPropertyValue('--safe-bottom').trim();
-  const gap = cs.getPropertyValue('--nav-gap').trim();
-  el.textContent =
-    `win ${window.innerHeight} · scr ${screen.height} · app ${Math.round(app.height)}\n` +
-    `app bas ${Math.round(app.bottom)} · nav bas ${Math.round(nav.bottom)}\n` +
-    `sous-nav ${Math.round(app.bottom - nav.bottom)} · gain ${Math.round(app.height - window.innerHeight)} px · safe-b ${sab}`;
-}
-setTimeout(majDiag, 600);
-window.addEventListener('resize', majDiag);
-if(window.visualViewport){
-  window.visualViewport.addEventListener('resize', majDiag);
-  window.visualViewport.addEventListener('scroll', majDiag);
-}
 
 // Demande au navigateur de ne pas évincer les données (Safari efface après 7 j d'inactivité)
 if(navigator.storage && navigator.storage.persist){
