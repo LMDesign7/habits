@@ -31,11 +31,12 @@
     --radius-pill: 999px;
     --safe-top: env(safe-area-inset-top, 20px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
-    /* Valeur strictement identique à la nav de Mon Budget (NAV-PILL.md),
-       qui s'affiche correctement sur le même téléphone. Les compensations
-       ajoutées pendant le bug de viewport (résolu par la réinstallation)
-       sont retirées : elles corrigeaient un décalage qui n'existe plus. */
-    --nav-gap: max(18px, env(safe-area-inset-bottom, 0px));
+    /* Mesuré sur captures côte à côte : la nav de Mon Budget est à ~8pt du
+       bord, l'indicateur d'accueil passe par-dessus la pilule — c'est le
+       rendu voulu. La formule max(18px, env(safe-area)) donnait 34pt ici :
+       correcte selon les règles Apple, mais pas ce que Lucas veut. On fixe
+       donc la même valeur constante que le rendu réel du budget. */
+    --nav-gap: 10px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
