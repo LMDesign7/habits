@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Habits">
@@ -231,7 +231,7 @@
   .add-row { display: flex; align-items: center; gap: 13px; padding: 13px 18px; margin: 2px 16px 0; border-radius: var(--radius); cursor: text; transition: background 0.2s; }
   .add-row:active { background: var(--surface); }
   .add-plus { width: 22px; height: 22px; border-radius: 7px; border: 1.5px dashed var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-dim); }
-  .add-input { flex: 1; background: none; border: none; outline: none; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 500; color: var(--text); min-width: 0; }
+  .add-input { flex: 1; background: none; border: none; outline: none; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 500; color: var(--text); min-width: 0; }
   .add-input::placeholder { color: var(--text-dim); }
 
   /* Terminé aujourd'hui */
@@ -307,7 +307,7 @@
   .heatmap-filters { display: flex; gap: 8px; margin-bottom: 16px; }
   .hm-select {
     flex: 1; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 13px;
+    border-radius: 12px; color: var(--text); font-family: 'Outfit', sans-serif; font-size: 16px;
     font-weight: 500; outline: none; appearance: none; -webkit-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238e8e9a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px;
@@ -350,7 +350,7 @@
   .goal-emoji { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
   .goal-name { flex: 1; font-size: 14px; font-weight: 500; min-width: 0; }
   .goal-input-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-  .goal-input { width: 52px; padding: 8px 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; text-align: center; outline: none; }
+  .goal-input { width: 52px; padding: 8px 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; text-align: center; outline: none; }
   .goal-input:focus { border-color: var(--accent); }
   .goal-pct { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 
@@ -372,10 +372,10 @@
   .modal-desc { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 24px; }
   .field-group { margin-bottom: 20px; }
   .field-label { display: block; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
-  .field-input { width: 100%; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; }
+  .field-input { width: 100%; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 16px; outline: none; }
   .field-input:focus { border-color: var(--accent); }
   .field-input::placeholder { color: #333340; }
-  .field-input.big { font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 500; }
+  .field-input.big { font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 500; }
   .field-hint { font-size: 11px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
   .field-hint code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 10px; }
   .save-btn { width: 100%; padding: 16px; background: var(--accent); color: var(--bg); border: none; border-radius: 16px; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
@@ -795,16 +795,13 @@ function switchTab(tab) {
 // iOS Safari ignore user-scalable=no depuis iOS 10 : il faut
 // bloquer les événements de geste à la main.
 // ═══════════════════════════════════════
-['gesturestart','gesturechange','gestureend'].forEach(ev=>{
-  document.addEventListener(ev, e=>e.preventDefault(), { passive:false });
-});
-// Double-tap = zoom sur iOS. On neutralise le second tap rapproché.
-let lastTouch = 0;
-document.addEventListener('touchend', e=>{
-  const now = Date.now();
-  if(now - lastTouch <= 300) e.preventDefault();
-  lastTouch = now;
-}, { passive:false });
+/* `touch-action: manipulation` sur body supprime déjà le zoom au double-tap
+   depuis iOS 10, et la coque `overflow:hidden` empêche le pinch. Le blocage
+   manuel qui vivait ici comparait un simple horodatage global : deux taps à
+   moins de 300 ms N'IMPORTE OÙ sur la page annulaient le second. Cocher deux
+   habitudes d'affilée ne marchait qu'à cadence lente. Supprimé.
+   `gesturestart` est également retiré : il rendait tout zoom impossible,
+   y compris pour quelqu'un qui en a besoin pour lire. */
 
 // ═══════════════════════════════════════
 // HOME — Render (inchangé)
@@ -868,9 +865,12 @@ function loadHabitsData(){
   if(!habitsData.goals) habitsData.goals = {};
 }
 function saveHabitsData(){
-  try { localStorage.setItem('habits_data', JSON.stringify(habitsData)); }
+  let json;
+  try { json = JSON.stringify(habitsData); localStorage.setItem('habits_data', json); }
   catch(e){ console.error('écriture habits_data impossible', e); showSync('Sauvegarde impossible ✗','error'); return; }
   if(!cloudCanPush()){ pushQueue.habits = true; return; }
+  if(json === lastPushed.habits) return;          // rien de neuf : on n'écrit pas 180 Ko pour rien
+  lastPushed.habits = json;
   if(window.cloudHabits) window.cloudHabits.save(habitsData);
 }
 
@@ -933,13 +933,19 @@ function updateProgress() {
 // ═══════════════════════════════════════
 // SYNC HABITUDES (inchangé)
 // ═══════════════════════════════════════
+/* Un seul timer pour la barre du bas. Avant, `showSync` et `hideUndo`
+   programmaient chacun le leur sans jamais annuler celui de l'autre :
+   un message pouvait être effacé 400 ms après son apparition, et la barre
+   « Annuler » disparaissait avant la fin du délai d'annulation. */
+let barTimer = null;
 function showSync(t,type='') {
+  clearTimeout(barTimer);
   const b=document.getElementById('syncBar');
   // La barre peut avoir été remplacée par le toast « Annuler » : on la reconstruit.
   b.innerHTML = '<div class="sync-dot"></div><span id="syncText"></span>';
   document.getElementById('syncText').textContent=t;
   b.className='sync-bar visible '+type;
-  setTimeout(()=>b.classList.remove('visible'),2500);
+  barTimer = setTimeout(()=>b.classList.remove('visible'),2500);
 }
 async function syncToSheet() {
   const c=getConfig(); if(!c.url) return; showSync('Synchronisation...');
@@ -972,6 +978,13 @@ let undoTimer = null, undoTaskId = null;
 let cloudPushArmed = false;
 let rolloverCanPersist = false;
 const pushQueue = { habits:false, todo:false };
+
+/* Depuis l'import des 596 jours, `habits_data` pèse ~90 Ko. Chaque push
+   déclenche un UPDATE de 90 Ko PLUS une copie intégrale de l'ancienne
+   valeur dans app_state_history (le trigger d'archive) : 180 Ko de JSONB
+   à compresser par coche. On ne renvoie donc jamais deux fois la même
+   charge — un rendu ou un re-clic qui ne change rien ne coûte plus rien. */
+const lastPushed = { habits:null, todo:null };
 let conflictPayload = null, conflictChoice = null, conflictScope = null;
 let conflictQueue = [];
 
@@ -1008,9 +1021,12 @@ function seedTodoDefaults(){
 }
 
 function saveTodo(){
-  try { localStorage.setItem('todo_data', JSON.stringify(todo)); }
+  let json;
+  try { json = JSON.stringify(todo); localStorage.setItem('todo_data', json); }
   catch(e){ console.error('écriture todo_data impossible', e); showSync('Sauvegarde impossible ✗','error'); return; }
   if(!cloudCanPush()){ pushQueue.todo = true; return; }
+  if(json === lastPushed.todo) return;
+  lastPushed.todo = json;
   if(window.cloudTodo) window.cloudTodo.save(todo);
 }
 
@@ -1059,7 +1075,14 @@ function rollDays(task){
 function getCat(id){ return todo.cats.find(c=>c.id===id); }
 function getTask(id){ return todo.tasks.find(t=>t.id===id); }
 function subsOf(id){ return todo.tasks.filter(t=>t.parentId===id).sort((a,b)=>a.order-b.order); }
-function isDoneToday(task){ return task.completedAt && task.completedAt.slice(0,10)===todayKey(); }
+/* `completedAt` est en UTC, `todayKey()` en heure locale. Comparer les deux
+   directement faisait disparaître toute tâche cochée entre minuit et 2h :
+   ni dans la liste du jour, ni dans « Terminé aujourd'hui ». Nulle part. */
+function localDayOf(iso){
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function isDoneToday(task){ return !!task.completedAt && localDayOf(task.completedAt) === todayKey(); }
 
 function todayTasks(){
   const t = todayKey();
@@ -1072,10 +1095,27 @@ function doneTodayTasks(){
 }
 
 // ─── Rendu ───
-function renderTodo(){ runRollover(); renderTodayView(); renderCatsView(); updateTodoCounts(); }
+function renderTodo(){
+  // Les vues sont reconstruites par innerHTML : sans ça, cocher une
+  // sous-tâche refermait la liste sous le doigt à chaque fois.
+  const ouverts = [...document.querySelectorAll('.subtasks.open')].map(e=>e.id);
+  runRollover(); renderTodayView(); renderCatsView(); updateTodoCounts();
+  ouverts.forEach(id=>{
+    const wrap = document.getElementById(id);
+    if(!wrap) return;
+    wrap.classList.add('open');
+    const row = document.getElementById('task-' + id.slice(5));   // subs-X-id → task-X-id
+    if(row) row.classList.add('open');
+  });
+}
 
+/* Une tâche planifiée aujourd'hui est rendue DEUX fois : dans la vue du jour
+   et dans sa catégorie. Avec un id identique, getElementById renvoyait
+   toujours la première — celle qui est masquée — donc taper la ligne visible
+   dans Catégories ne faisait rien. Chaque vue préfixe désormais ses ids. */
 function taskRowHTML(task, opts){
   opts = opts || {};
+  const sc = opts.scope || 't';
   const cat = getCat(task.catId);
   const subs = subsOf(task.id);
   const subsDone = subs.filter(s=>s.completedAt).length;
@@ -1097,7 +1137,8 @@ function taskRowHTML(task, opts){
     </div>` : '';
 
   return `
-  <div class="task-item${done?' done':''}" id="task-${task.id}" onclick="onTaskRowClick(event,'${task.id}')">
+  <div class="task-item${done?' done':''}" id="task-${sc}-${task.id}" data-task="${task.id}"
+       onclick="onTaskRowClick(event,'${task.id}','${sc}')">
     <div class="t-check" onclick="event.stopPropagation();toggleTaskDone('${task.id}')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#060608" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
@@ -1107,7 +1148,7 @@ function taskRowHTML(task, opts){
     </div>
     ${todayBtn}${chevron}
   </div>
-  ${subs.length ? `<div class="subtasks" id="subs-${task.id}">${subs.map(s=>subRowHTML(s)).join('')}</div>` : ''}`;
+  ${subs.length ? `<div class="subtasks" id="subs-${sc}-${task.id}">${subs.map(s=>subRowHTML(s)).join('')}</div>` : ''}`;
 }
 
 function subRowHTML(s){
@@ -1129,18 +1170,20 @@ function renderTodayView(){
       ? `<div class="empty celebrate"><div class="empty-emoji">✓</div><div class="empty-title">Tout est fait</div><div class="empty-sub">Rien d'autre pour aujourd'hui.<br>Profites-en.</div></div>`
       : `<div class="empty"><div class="empty-emoji">◦</div><div class="empty-title">Rien pour aujourd'hui</div><div class="empty-sub">Appuie sur le bouton vert pour ajouter,<br>ou pioche dans tes catégories.</div></div>`;
   } else {
-    list.innerHTML = tasks.map(t=>taskRowHTML(t,{showCat:true})).join('');
+    list.innerHTML = tasks.map(t=>taskRowHTML(t,{showCat:true, scope:'t'})).join('');
   }
   const done = doneTodayTasks();
   document.getElementById('doneLabel').textContent = `Terminé aujourd'hui · ${done.length}`;
   document.getElementById('doneToggle').style.display = done.length ? 'flex' : 'none';
-  document.getElementById('doneList').innerHTML = done.map(t=>taskRowHTML(t,{showCat:true})).join('');
+  document.getElementById('doneList').innerHTML = done.map(t=>taskRowHTML(t,{showCat:true, scope:'d'})).join('');
 }
 
 function renderCatsView(){
   const el = document.getElementById('catList');
   const openIds = [...document.querySelectorAll('.cat-block.open')].map(b=>b.id.replace('cat-',''));
-  el.innerHTML = todo.cats.sort((a,b)=>a.order-b.order).map(c=>{
+  // Copie avant tri : `sort` trie en place, un simple rendu réordonnait
+  // le tableau persisté.
+  el.innerHTML = [...todo.cats].sort((a,b)=>a.order-b.order).map(c=>{
     const tasks = todo.tasks.filter(t=>t.catId===c.id && !t.parentId && !t.completedAt).sort((a,b)=>a.order-b.order);
     const isOpen = openIds.includes(c.id);
     return `<div class="cat-block${isOpen?' open':''}" id="cat-${c.id}">
@@ -1154,7 +1197,7 @@ function renderCatsView(){
         </span>
       </div>
       <div class="cat-body">
-        ${tasks.length ? tasks.map(t=>taskRowHTML(t,{showToday:true})).join('') : `<div class="empty" style="padding:20px"><div class="empty-sub">Rien dans ${escapeHtml(c.name)} pour l'instant.</div></div>`}
+        ${tasks.length ? tasks.map(t=>taskRowHTML(t,{showToday:true, scope:'c'})).join('') : `<div class="empty" style="padding:20px"><div class="empty-sub">Rien dans ${escapeHtml(c.name)} pour l'instant.</div></div>`}
         <div class="add-row" style="margin-left:0;margin-right:0" onclick="event.stopPropagation();this.querySelector('input').focus()">
           <div class="add-plus"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
           <input class="add-input" placeholder="Ajouter dans ${escapeHtml(c.name)}" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')addTaskInCat(this,'${c.id}')">
@@ -1173,12 +1216,12 @@ function updateTodoCounts(){
 }
 
 // ─── Actions ───
-function onTaskRowClick(e, id){
-  const subs = subsOf(id);
-  if(subs.length){
-    const el = document.getElementById('task-'+id);
-    const wrap = document.getElementById('subs-'+id);
-    el.classList.toggle('open'); wrap.classList.toggle('open');
+function onTaskRowClick(e, id, sc){
+  sc = sc || 't';
+  if(subsOf(id).length){
+    const el = document.getElementById(`task-${sc}-${id}`);
+    const wrap = document.getElementById(`subs-${sc}-${id}`);
+    if(el && wrap){ el.classList.toggle('open'); wrap.classList.toggle('open'); }
   } else {
     openTaskModal(id);
   }
@@ -1193,14 +1236,18 @@ function toggleTaskDone(id){
   }
 
   task.completedAt = new Date().toISOString();
+  // Terminer clôt le cycle de planification : sans ça, décocher la tâche
+  // des semaines plus tard faisait repartir le compteur depuis l'origine.
+  task.firstScheduledFor = task.scheduledFor;
   saveTodo();
 
   // Sous-tâche : rendu immédiat, pas de glissement
   if(task.parentId){ renderTodo(); return; }
 
-  // Tâche : coche → barré → glissement après 2,5 s, avec Annuler
-  const el = document.getElementById('task-'+id);
-  if(el) el.classList.add('done');
+  // Tâche : coche → barré → glissement après 2,5 s, avec Annuler.
+  // La tâche peut être affichée dans plusieurs vues : on les décore toutes.
+  document.querySelectorAll(`[data-task="${id}"]`).forEach(e=>e.classList.add('done'));
+  const el = document.getElementById('task-t-'+id);
   updateTodoCounts();
 
   undoTaskId = id;
@@ -1214,14 +1261,16 @@ function toggleTaskDone(id){
 }
 
 function showUndo(txt){
+  clearTimeout(barTimer);
   const b = document.getElementById('syncBar');
   b.innerHTML = `<span>${txt}</span><button class="undo-btn" onclick="undoDone()">Annuler</button>`;
   b.className = 'sync-bar visible';
 }
 function hideUndo(){
+  clearTimeout(barTimer);
   const b = document.getElementById('syncBar');
   b.classList.remove('visible');
-  setTimeout(()=>{ b.innerHTML = '<div class="sync-dot"></div><span id="syncText"></span>'; }, 400);
+  barTimer = setTimeout(()=>{ b.innerHTML = '<div class="sync-dot"></div><span id="syncText"></span>'; }, 400);
 }
 function undoDone(){
   clearTimeout(undoTimer);
@@ -1284,15 +1333,26 @@ function addTaskInCat(input, catId){
   const v = input.value.trim(); if(!v) return;
   todo.tasks.push({ id:uid(), catId, parentId:null, title:v, scheduledFor:null, firstScheduledFor:null, completedAt:null, order:Date.now(), createdAt:new Date().toISOString() });
   saveTodo(); input.value = ''; renderTodo();
-  document.getElementById('cat-'+catId).classList.add('open');
+  const bloc = document.getElementById('cat-'+catId);
+  if(bloc){
+    bloc.classList.add('open');
+    // renderTodo() a détruit le champ : sans ce re-focus, le clavier se
+    // referme et on ne peut pas enchaîner deux tâches d'affilée.
+    const champ = bloc.querySelector('.add-input');
+    if(champ) champ.focus();
+  }
 }
 
 // Le geste porte la métadonnée : un tap sur l'icône calendrier planifie pour aujourd'hui
 function toggleScheduleToday(id){
   const task = getTask(id); if(!task) return;
   const t = todayKey();
-  if(task.scheduledFor === t){ task.scheduledFor = null; }
-  else { task.scheduledFor = t; if(!task.firstScheduledFor) task.firstScheduledFor = t; }
+  // Ranger puis ressortir une tâche remettait le compteur à zéro… sauf que
+  // firstScheduledFor survivait : une tâche sans aucun retard s'affichait
+  // « ·147 » en rouge. Le cycle de planification remet les deux à plat ;
+  // seul le report automatique doit faire vivre le compteur.
+  if(task.scheduledFor === t){ task.scheduledFor = null; task.firstScheduledFor = null; }
+  else { task.scheduledFor = t; task.firstScheduledFor = t; }
   saveTodo(); renderTodo();
   const b = document.getElementById('cat-'+task.catId); if(b) b.classList.add('open');
   if(navigator.vibrate) navigator.vibrate(8);
@@ -1399,7 +1459,8 @@ function exportTodo(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `taches-${todayKey()}.json`;
-  a.click(); URL.revokeObjectURL(a.href);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
   localStorage.setItem('todo_last_export', new Date().toISOString());
   document.getElementById('todoSettingsOverlay').classList.remove('open');
   showSync('Exporté ✓','success');
@@ -1530,7 +1591,18 @@ function renderStats() {
   });
   heatHTML += '</select></div><div id="heatmapGrid"></div></div>';
 
+  // Les deux <select> sont reconstruits à chaque visite de l'onglet :
+  // sans ça, le mois et l'habitude choisis étaient perdus dès qu'on
+  // allait cocher une tâche.
+  const moisAvant   = document.getElementById('hmMonth')?.value;
+  const habitAvant  = document.getElementById('hmHabit')?.value;
+
   el.innerHTML = ratesHTML + heatHTML;
+
+  const selMois  = document.getElementById('hmMonth');
+  const selHabit = document.getElementById('hmHabit');
+  if(moisAvant  && selMois  && [...selMois.options ].some(o=>o.value===moisAvant))  selMois.value  = moisAvant;
+  if(habitAvant && selHabit && [...selHabit.options].some(o=>o.value===habitAvant)) selHabit.value = habitAvant;
 
   setTimeout(()=>{
     document.querySelectorAll('.rate-bar-fill').forEach((bar,i) => {
@@ -1668,8 +1740,25 @@ if(navigator.storage && navigator.storage.persist){
   navigator.storage.persist().catch(()=>{});
 }
 
-// Le rollover doit tourner au retour dans l'app, pas seulement au chargement
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ runRollover(); renderTodo(); } });
+/* Au retour dans l'app, deux choses à rattraper.
+   `selectedDate` était figée au chargement : une PWA laissée ouverte le soir
+   et rouverte le matin écrivait les coches du matin dans la journée d'hier. */
+let dernierJourVu = todayKey();
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden) return;
+  const maintenant = todayKey();
+  if(maintenant !== dernierJourVu){
+    // Le jour a tourné pendant l'absence — on ne bouge que si l'utilisateur
+    // était bien sur « aujourd'hui », pas s'il consultait volontairement mardi.
+    if(toSheetDate(selectedDate) === dernierJourVu.slice(8,10)+'.'+dernierJourVu.slice(5,7)+'.'+dernierJourVu.slice(2,4)){
+      selectedDate = new Date();
+      loadState(); renderHeader(); renderHabits(); updateProgress();
+    }
+    dernierJourVu = maintenant;
+    renderWeek();
+  }
+  runRollover(); renderTodo();
+});
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -1922,7 +2011,8 @@ function exportEverything(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `habits-sauvegarde-complete-${todayKey()}.json`;
-  a.click(); URL.revokeObjectURL(a.href);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
   markBackup();
   showSync('Sauvegarde téléchargée ✓','success');
 }
@@ -1958,6 +2048,11 @@ const habitsStore = createStore({
   supabaseAnonKey: SUPABASE_ANON_KEY,
   storageKey: 'habits_data',
   isEmpty: d => !d || (Object.keys(d.days||{}).length === 0 && Object.keys(d.goals||{}).length === 0),
+  // 90 Ko par push : on laisse une routine du matin (10 coches d'affilée)
+  // se regrouper en une seule écriture au lieu de plusieurs. cloud-store
+  // force de toute façon l'envoi quand l'app passe en arrière-plan,
+  // donc rien n'est en attente une fois l'app fermée.
+  debounceMs: 12000,
 });
 
 const todoStore = createStore({
@@ -1968,6 +2063,7 @@ const todoStore = createStore({
   // Les catégories seules ne sont pas une donnée : trois catégories vides
   // ne doivent jamais pouvoir écraser un vrai jeu de tâches distant.
   isEmpty: d => !d || (d.tasks||[]).length === 0,
+  debounceMs: 6000,
 });
 
 window.cloudHabits = habitsStore;
