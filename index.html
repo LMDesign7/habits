@@ -457,6 +457,16 @@
   .chip.selected { background: var(--accent-light); border-color: rgba(184,255,87,0.3); color: var(--accent); }
   .chip:active { transform: scale(0.96); }
 
+  /* Respect du réglage système « réduire les animations » — coupe aussi
+     le clignotement infini de la pastille de synchronisation (SC 2.2.2). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   /* ─── Sauvegarde cloud ─── */
   .cloud-dot {
     width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
@@ -643,7 +653,7 @@
     <p class="modal-desc">Un nom et une couleur. C'est tout.</p>
     <div class="field-group">
       <label class="field-label">Nom</label>
-      <input class="field-input big" type="text" id="catNameInput" placeholder="Perso, Chaîne YouTube…">
+      <input class="field-input big" type="text" id="catNameInput" placeholder="Perso, Chaîne YouTube…" onkeydown="if(event.key==='Enter')saveCat()">
     </div>
     <div class="field-group">
       <label class="field-label">Couleur</label>
@@ -662,14 +672,17 @@
     <p class="modal-desc" id="taskModalSub"></p>
     <div class="field-group">
       <label class="field-label">Titre</label>
-      <input class="field-input big" type="text" id="taskTitleInput">
+      <input class="field-input big" type="text" id="taskTitleInput" onkeydown="if(event.key==='Enter')saveTaskEdit()">
     </div>
     <div class="field-group">
       <label class="field-label">Catégorie</label>
       <select class="hm-select" id="taskCatSelect" style="width:100%"></select>
     </div>
+    <div class="field-group">
+      <label class="field-label">Nouvelle sous-tâche</label>
+      <input class="field-input big" type="text" id="subInput" placeholder="Ajouter une étape…" onkeydown="if(event.key==='Enter')addSubtaskInline()">
+    </div>
     <button class="save-btn" onclick="saveTaskEdit()">Enregistrer</button>
-    <button class="ghost-btn" id="taskSubBtn" onclick="addSubtaskPrompt()">Ajouter une sous-tâche</button>
     <button class="ghost-btn danger" onclick="deleteTask()">Supprimer</button>
   </div>
 </div>
@@ -1013,6 +1026,7 @@ function renderHabits() {
   HABITS.forEach((h,i)=>{
     const done=state[h.id]===1, el=document.createElement('div');
     el.className=`habit-item${done?' done':''}`; el.style.animationDelay=`${i*0.035}s`;
+    el.setAttribute('role','checkbox'); el.setAttribute('aria-checked', done?'true':'false'); el.setAttribute('aria-label', h.name); el.tabIndex=0;
     el.innerHTML=`<div class="h-emoji">${h.icon}</div><div class="h-body"><div class="h-name">${h.name}</div></div><div class="h-toggle"><svg class="h-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#060608" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`;
     el.addEventListener('click',(e)=>{
       const r=document.createElement('div'); r.className='ripple';
@@ -1020,6 +1034,7 @@ function renderHabits() {
       r.style.width=r.style.height=sz+'px'; r.style.left=(e.clientX-rect.left-sz/2)+'px'; r.style.top=(e.clientY-rect.top-sz/2)+'px';
       el.appendChild(r); setTimeout(()=>r.remove(),500);
       state[h.id]=state[h.id]===1?0:1; el.classList.toggle('done');
+      el.setAttribute('aria-checked', state[h.id]===1?'true':'false');
       saveState(); updateProgress(); renderWeek();
       if(navigator.vibrate) navigator.vibrate(10);
     });
@@ -1241,7 +1256,7 @@ function taskRowHTML(task, opts){
   return `
   <div class="task-item${done?' done':''}" id="task-${sc}-${task.id}" data-task="${task.id}"
        onclick="onTaskRowClick(event,'${task.id}','${sc}')">
-    <div class="t-check" onclick="event.stopPropagation();toggleTaskDone('${task.id}')">
+    <div class="t-check" role="checkbox" aria-checked="${done?'true':'false'}" aria-label="${escapeHtml(task.title)}" tabindex="0" onclick="event.stopPropagation();toggleTaskDone('${task.id}')" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();event.stopPropagation();toggleTaskDone('${task.id}')}">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#060608" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
     <div class="t-body">
@@ -1355,6 +1370,10 @@ function toggleTaskDone(id){
   const el = document.getElementById('task-t-'+id);
   updateTodoCounts();
 
+  // Une coche précédente encore en délai d'annulation est entérinée
+  // immédiatement : « Annuler » ne porte que sur la dernière, et l'écran
+  // le montre au lieu de le laisser deviner.
+  if(undoTaskId && undoTaskId !== id){ renderTodo(); }
   undoTaskId = id;
   showUndo('Tâche terminée');
   clearTimeout(undoTimer);
@@ -1504,7 +1523,7 @@ function saveCat(){
   if(editingCatId){
     const c = getCat(editingCatId); c.name = name; c.color = pendingColor;
   } else {
-    todo.cats.push({ id:uid(), name, color:pendingColor, order:todo.cats.length });
+    todo.cats.push({ id:uid(), name, color:pendingColor, order: todo.cats.length ? Math.max(...todo.cats.map(c=>c.order||0))+1 : 0 });
   }
   saveTodo(); document.getElementById('catOverlay').classList.remove('open'); renderTodo();
 }
@@ -1524,6 +1543,7 @@ function openTaskModal(id){
   document.getElementById('taskTitleInput').value = t.title;
   const roll = rollDays(t);
   document.getElementById('taskModalSub').textContent = roll>0 ? `Reportée depuis ${roll} jour${roll>1?'s':''}.` : 'Titre, catégorie, sous-tâches.';
+  const si = document.getElementById('subInput'); if(si) si.value='';
   document.getElementById('taskCatSelect').innerHTML = todo.cats.map(c=>
     `<option value="${c.id}"${c.id===t.catId?' selected':''}>${escapeHtml(c.name)}</option>`
   ).join('');
@@ -1536,11 +1556,15 @@ function saveTaskEdit(){
   t.catId = document.getElementById('taskCatSelect').value;
   saveTodo(); document.getElementById('taskOverlay').classList.remove('open'); renderTodo();
 }
-function addSubtaskPrompt(){
+/* Remplace l'ancien prompt() système — hors DA, et peu fiable en PWA. */
+function addSubtaskInline(){
   const t = getTask(editingTaskId); if(!t) return;
-  const v = prompt('Sous-tâche :'); if(!v || !v.trim()) return;
-  todo.tasks.push({ id:uid(), catId:t.catId, parentId:t.id, title:v.trim(), scheduledFor:null, firstScheduledFor:null, completedAt:null, order:Date.now(), createdAt:new Date().toISOString() });
+  const inp = document.getElementById('subInput');
+  const v = (inp.value||'').trim(); if(!v) return;
+  todo.tasks.push({ id:uid(), catId:t.catId, parentId:t.id, title:v, scheduledFor:null, firstScheduledFor:null, completedAt:null, order:Date.now(), createdAt:new Date().toISOString() });
   saveTodo(); renderTodo();
+  inp.value=''; inp.focus();               // enchaîner plusieurs étapes sans rouvrir
+  showSync('Sous-tâche ajoutée ✓','success');
 }
 function deleteTask(){
   const t = getTask(editingTaskId); if(!t) return;
