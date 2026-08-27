@@ -27,7 +27,11 @@
     --radius-pill: 999px;
     --safe-top: env(safe-area-inset-top, 20px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --nav-gap: max(18px, env(safe-area-inset-bottom, 0px));
+    /* La zone sûre du bas vaut 34px sur un iPhone à indicateur d'accueil.
+       S'y aligner posait la pilule trop haut : l'indicateur ne fait que ~5px
+       et vit dans le bas de cette zone. On descend donc de 16px — la pilule
+       le dégage largement sans flotter au milieu de l'écran. */
+    --nav-gap: max(12px, calc(env(safe-area-inset-bottom, 0px) - 16px));
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
