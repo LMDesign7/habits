@@ -2179,6 +2179,44 @@ const SUPABASE_ANON_KEY = 'sb_publishable_TQwDRZLXCZjVe59Qf0ykEQ_8a01A4F7';
 /* Un store par année : appId 'habits-2025', 'habits-2026', …
    L'ancien appId 'habits' n'est plus alimenté mais reste en base —
    c'est un instantané figé des 596 jours, une sauvegarde de plus. */
+/* ═══════════════════════════════════════════════════════════
+   COUPE-CIRCUIT
+   Une boucle de lecture a été observée côté Supabase (≈1300 req/s)
+   sans qu'on ait pu l'attribuer à un chemin précis. Tant que la cause
+   n'est pas identifiée, l'app s'interdit de dépasser un plafond
+   d'appels distants : au-delà, elle suspend la synchronisation,
+   le signale à l'écran et journalise la pile d'appels fautive.
+   Le stockage local, lui, continue de fonctionner normalement.
+   ═══════════════════════════════════════════════════════════ */
+const CB = { n:0, since:Date.now(), tripped:false, LIMIT:90 };   // 90 appels/minute max
+
+function cbAllow(quoi){
+  if(CB.tripped) return false;
+  const now = Date.now();
+  if(now - CB.since > 60000){ CB.n = 0; CB.since = now; }
+  if(++CB.n > CB.LIMIT){
+    CB.tripped = true;
+    console.error(
+      `[coupe-circuit] ${CB.LIMIT}+ appels distants en une minute (dernier : ${quoi}).\n` +
+      `Synchronisation suspendue. Pile d'appels ci-dessous :`
+    );
+    console.trace();
+    window.showSync && window.showSync('Sync suspendue — boucle détectée ✗','error');
+    return false;
+  }
+  return true;
+}
+window.cbEtat = () => ({ appels: CB.n, depuis: new Date(CB.since).toLocaleTimeString('fr-FR'), suspendu: CB.tripped });
+
+/* Enveloppe les trois méthodes qui parlent au réseau. */
+function proteger(store, nom){
+  const h = store.hydrate, f = store.flush, s = store.save;
+  store.hydrate = async (...a) => cbAllow(nom+'.hydrate') ? h.apply(store, a) : { applied:'none' };
+  store.flush   = async (...a) => cbAllow(nom+'.flush')   ? f.apply(store, a) : undefined;
+  store.save    = (...a)       => cbAllow(nom+'.save')    ? s.apply(store, a) : undefined;
+  return store;
+}
+
 const habitYearStores = {};
 function makeYearStore(y){
   const s = createStore({
@@ -2193,7 +2231,7 @@ function makeYearStore(y){
   });
   // Une seule instance rafraîchit le jeton, sinon elles se le disputent.
   try { s.supabase.auth.stopAutoRefresh(); } catch(e){}
-  return s;
+  return proteger(s, 'habits-'+y);
 }
 
 const ANNEES = window.habitYears();
@@ -2204,7 +2242,7 @@ window.cloudHabitYears = habitYearStores;
 const anneeCourante = String(new Date().getFullYear());
 const habitsStore = habitYearStores[anneeCourante] || habitYearStores[ANNEES[ANNEES.length-1]];
 
-const todoStore = createStore({
+const todoStore = proteger(createStore({
   appId: 'habits-todo',
   supabaseUrl: SUPABASE_URL,
   supabaseAnonKey: SUPABASE_ANON_KEY,
@@ -2213,7 +2251,7 @@ const todoStore = createStore({
   // ne doivent jamais pouvoir écraser un vrai jeu de tâches distant.
   isEmpty: d => !d || (d.tasks||[]).length === 0,
   debounceMs: 6000,
-});
+}), 'habits-todo');
 
 window.cloudHabits = habitsStore;
 window.cloudTodo   = todoStore;
