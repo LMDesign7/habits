@@ -747,6 +747,7 @@
   <div class="modal">
     <div class="modal-bar"></div>
     <h2>Réglages</h2>
+    <p class="modal-desc" style="margin-bottom:6px">Version <span id="appVersion">—</span></p>
     <div style="margin-top:18px">
       <div class="cat-row" onclick="closeHub();openGoals()">
         <span style="font-size:17px">🎯</span><span class="cat-name">Objectifs</span>
@@ -1862,6 +1863,14 @@ document.getElementById('goalsOverlay').addEventListener('click', e => {
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
+/* Numéro de version visible dans Réglages : permet de vérifier en un
+   coup d'œil si le téléphone affiche bien la dernière version déployée,
+   ou une copie en cache — ce qui a coûté une soirée de corrections à
+   l'aveugle sur la nav. À incrémenter à chaque déploiement. */
+const APP_VERSION = '27.08 — 21h';
+document.getElementById('appVersion').textContent = APP_VERSION;
+console.log('Habits ' + APP_VERSION);
+
 loadHabitsData();
 loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
 loadTodo(); renderTodo();     // le report s'applique en mémoire, sans écrire
