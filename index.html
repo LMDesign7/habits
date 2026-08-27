@@ -59,11 +59,14 @@
      d'aucune unité de hauteur. */
   .app {
     position: fixed;
-    top: 0; right: 0; bottom: 0; left: 0;
-    /* Pas de `width` ici : avec left/right à 0, une largeur explicite
-       sur-contraint la boîte, les marges auto sont calculées à 0 et le
-       centrage ne se fait plus. En laissant width:auto, max-width et
-       margin:auto se combinent correctement. */
+    top: 0; right: 0; left: 0;
+    /* `bottom: 0` s'arrêtait à 873px pour un écran de 932 : en PWA installée
+       le viewport de mise en page n'atteint pas le bas de l'écran. `100vh`,
+       lui, vaut la hauteur MAXIMALE de l'écran sur iOS — c'est exactement
+       l'inverse de `dvh`, et c'est ce qui nous sauve ici.
+       Toute la barre du bas passe donc en `absolute` DANS cette boîte,
+       au lieu d'être fixée au viewport. */
+    height: 100vh;
     max-width: 520px;
     margin: 0 auto;
     display: flex; flex-direction: column;
@@ -97,7 +100,7 @@
 
   /* ─── Nav pill flottante ─── */
   .tab-bar {
-    position: fixed;
+    position: absolute;              /* dans .app, pas dans le viewport */
     bottom: var(--nav-gap);
     left: 50%; transform: translateX(-50%);
     width: min(420px, calc(100% - 32px));
@@ -382,7 +385,7 @@
   .goal-input:focus { border-color: var(--accent); }
   .goal-pct { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 
-  .sync-bar { position: fixed; bottom: calc(var(--nav-gap) + 66px); left: 50%; transform: translateX(-50%) translateY(120px); width: min(420px, calc(100% - 32px)); padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
+  .sync-bar { position: absolute; bottom: calc(var(--nav-gap) + 66px); left: 50%; transform: translateX(-50%) translateY(120px); width: min(420px, calc(100% - 32px)); padding: 14px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); z-index: 100; transform: translateY(120px); opacity: 0; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
   .sync-bar.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
   .sync-bar.success { border-color: rgba(184,255,87,0.25); color: var(--accent); }
   .sync-bar.error { border-color: rgba(255,107,107,0.25); color: var(--red); }
@@ -423,8 +426,8 @@
      Placé AU-DESSUS de la pilule, aligné sur son bord droit : la pilule
      occupe presque toute la largeur, un bouton au ras du bord la heurterait. */
   .fab {
-    position: fixed;
-    right: max(16px, calc((100vw - 420px) / 2));
+    position: absolute;
+    right: max(16px, calc((100% - 420px) / 2));
     bottom: calc(var(--nav-gap) + 70px);
     width: 54px; height: 54px; border-radius: 50%;
     background: var(--accent); color: var(--bg);
@@ -629,10 +632,11 @@
   </div>
 </div>
 
-<!-- REPÈRES TEMPORAIRES : montrent où le navigateur croit être le bas.
-     Lime = position:fixed bottom:0. Rouge = bas du viewport visuel. -->
-<div style="position:fixed;bottom:0;left:0;right:0;height:4px;background:#b8ff57;z-index:999;pointer-events:none"></div>
-<div id="repereVV" style="position:fixed;left:0;right:0;height:4px;background:#ff3b3b;z-index:999;pointer-events:none;display:none"></div>
+<!-- REPÈRES TEMPORAIRES
+     Lime  = bas de la coque (.app, en 100vh)  → doit toucher le bord de l'écran
+     Rouge = bas du viewport de mise en page   → devrait rester au-dessus -->
+<div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#b8ff57;z-index:999;pointer-events:none"></div>
+<div style="position:fixed;bottom:0;left:0;right:0;height:4px;background:#ff3b3b;z-index:998;pointer-events:none"></div>
 
 <div class="sync-bar" id="syncBar"><div class="sync-dot"></div><span id="syncText"></span></div>
 
@@ -1893,18 +1897,10 @@ function majDiag(){
   const nav = document.querySelector('.tab-bar').getBoundingClientRect();
   const sab = cs.getPropertyValue('--safe-bottom').trim();
   const gap = cs.getPropertyValue('--nav-gap').trim();
-  const vv = window.visualViewport;
   el.textContent =
-    `win ${window.innerHeight} · doc ${document.documentElement.clientHeight} · scr ${screen.height}\n` +
-    `vv h ${vv?Math.round(vv.height):'—'} offY ${vv?Math.round(vv.offsetY):'—'} scale ${vv?vv.scale.toFixed(2):'—'} · dpr ${devicePixelRatio}\n` +
-    `nav bas ${Math.round(nav.bottom)} · sous-nav ${Math.round(window.innerHeight - nav.bottom)} · safe-b ${sab}`;
-
-  // Repère rouge au bas du viewport visuel, s'il diffère du viewport de mise en page
-  const r = document.getElementById('repereVV');
-  if(r && vv && Math.abs(vv.height + vv.offsetY - window.innerHeight) > 2){
-    r.style.display = 'block';
-    r.style.top = Math.round(vv.offsetY + vv.height - 4) + 'px';
-  }
+    `win ${window.innerHeight} · scr ${screen.height} · app ${Math.round(app.height)}\n` +
+    `app bas ${Math.round(app.bottom)} · nav bas ${Math.round(nav.bottom)}\n` +
+    `sous-nav ${Math.round(app.bottom - nav.bottom)} · gain ${Math.round(app.height - window.innerHeight)} px · safe-b ${sab}`;
 }
 setTimeout(majDiag, 600);
 window.addEventListener('resize', majDiag);
