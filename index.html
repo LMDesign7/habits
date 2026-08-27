@@ -31,7 +31,7 @@
        S'y aligner posait la pilule trop haut : l'indicateur ne fait que ~5px
        et vit dans le bas de cette zone. On descend donc de 16px — la pilule
        le dégage largement sans flotter au milieu de l'écran. */
-    --nav-gap: max(12px, calc(env(safe-area-inset-bottom, 0px) - 16px));
+    --nav-gap: max(8px, calc(env(safe-area-inset-bottom, 0px) - 24px));
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -1643,11 +1643,9 @@ function loadStats() {
   };
 
   statsLoaded = true;
-  const annees = [...new Set(dates.map(d=>'20'+d.slice(6,8)))].sort();
-  document.getElementById('statsSub').textContent =
-    dates.length ? `${dates.length} jours trackés · ${annees.join(' — ')}` : 'Aucune donnée pour l\'instant';
-
+  // Le sous-titre est écrit par renderStats(), qui connaît le filtre d'année.
   if(!dates.length){
+    document.getElementById('statsSub').textContent = 'Aucune donnée pour l\'instant';
     document.getElementById('statsContent').innerHTML =
       '<div class="stats-loading">Coche tes premières habitudes pour voir apparaître tes statistiques.</div>';
     return;
@@ -1655,11 +1653,31 @@ function loadStats() {
   renderStats();
 }
 
+let statsYear = 'all';
+function switchStatsYear(y){ statsYear = y; renderStats(); }
+
 function renderStats() {
   if(!statsData) return;
   const el = document.getElementById('statsContent');
-  let ratesHTML = '<div class="rate-card"><div class="section-label">Taux de réussite</div>';
-  const habits = statsData.habits, days = statsData.days;
+  const habits = statsData.habits;
+
+  // Toute la page suit le filtre : taux de réussite ET calendrier.
+  const annees = [...new Set(statsData.days.map(d=>'20'+d.date.slice(6,8)))].sort();
+  if(statsYear !== 'all' && !annees.includes(statsYear)) statsYear = 'all';
+  const days = statsData.days.filter(d => statsYear === 'all' || '20'+d.date.slice(6,8) === statsYear);
+
+  let filtreHTML = '';
+  if(annees.length > 1){
+    filtreHTML = '<div class="segmented" style="margin:0 4px 22px">'
+      + `<button class="seg-btn${statsYear==='all'?' active':''}" onclick="switchStatsYear('all')">Tout</button>`
+      + annees.map(y=>`<button class="seg-btn${statsYear===y?' active':''}" onclick="switchStatsYear('${y}')">${y}</button>`).join('')
+      + '</div>';
+  }
+
+  document.getElementById('statsSub').textContent =
+    `${days.length} jour${days.length>1?'s':''} tracké${days.length>1?'s':''} · ${statsYear==='all' ? annees.join(' — ') : statsYear}`;
+
+  let ratesHTML = filtreHTML + '<div class="rate-card"><div class="section-label">Taux de réussite</div>';
 
   const rates = habits.map((name, idx) => {
     let done=0, total=0;
@@ -1682,7 +1700,6 @@ function renderStats() {
       <div class="rate-info">
         <div class="rate-name"><span>${r.name}${r.archived?' <span style="font-size:10px;color:var(--text-dim);font-family:\'JetBrains Mono\',monospace">archivée</span>':''}</span><span class="rate-pct">${r.pct}%</span></div>
         <div class="rate-bar">${goalMarker}<div class="rate-bar-fill ${cls}" style="width:0%"></div></div>
-        <div class="rate-status missed" style="opacity:.7">${r.total} jours suivis</div>
         ${statusHTML}
       </div>
     </div>`;
@@ -1693,7 +1710,7 @@ function renderStats() {
   heatHTML += '<div class="heatmap-filters">';
   heatHTML += '<select class="hm-select" id="hmMonth" onchange="renderHeatmap()">';
 
-  // Les mois proposés viennent des données réelles — donc 2025 ET 2026.
+  // Les mois proposés suivent le filtre d'année choisi au-dessus.
   const moisDispo = [...new Set(days.map(d=>'20'+d.date.slice(6,8)+'-'+d.date.slice(3,5)))].sort().reverse();
   const now = new Date(), curKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   moisDispo.forEach(k=>{
