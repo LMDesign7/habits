@@ -60,8 +60,12 @@
   .app {
     position: fixed;
     top: 0; right: 0; bottom: 0; left: 0;
-    width: 100%; max-width: 520px;   /* cadre l'app sur grand écran */
-    margin: 0 auto;                  /* centre malgré le position:fixed */
+    /* Pas de `width` ici : avec left/right à 0, une largeur explicite
+       sur-contraint la boîte, les marges auto sont calculées à 0 et le
+       centrage ne se fait plus. En laissant width:auto, max-width et
+       margin:auto se combinent correctement. */
+    max-width: 520px;
+    margin: 0 auto;
     display: flex; flex-direction: column;
     overflow: hidden;
     background: var(--bg);
@@ -498,7 +502,9 @@
 <div class="page active" id="pageHome">
   <div class="header">
     <div class="header-row">
-      <div class="brand">habits<span class="cloud-dot" id="cloudDotBrand"></span></div>
+      <div class="brand">habits<span class="cloud-dot" id="cloudDotBrand"></span>
+        <span id="diag" style="display:block;font-size:9px;letter-spacing:0;color:#7a6a3a;margin-top:4px;text-transform:none"></span>
+      </div>
       <button class="settings-btn" onclick="openSettings()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
       </button>
@@ -1653,7 +1659,9 @@ function loadStats() {
   renderStats();
 }
 
-let statsYear = 'all';
+// Par défaut l'année en cours. Pas de vue « tout » : mélanger des années
+// aux habitudes différentes produit des moyennes qui ne veulent rien dire.
+let statsYear = String(new Date().getFullYear());
 function switchStatsYear(y){ statsYear = y; renderStats(); }
 
 function renderStats() {
@@ -1662,20 +1670,20 @@ function renderStats() {
   const habits = statsData.habits;
 
   // Toute la page suit le filtre : taux de réussite ET calendrier.
-  const annees = [...new Set(statsData.days.map(d=>'20'+d.date.slice(6,8)))].sort();
-  if(statsYear !== 'all' && !annees.includes(statsYear)) statsYear = 'all';
-  const days = statsData.days.filter(d => statsYear === 'all' || '20'+d.date.slice(6,8) === statsYear);
+  const annees = [...new Set(statsData.days.map(d=>'20'+d.date.slice(6,8)))].sort().reverse();
+  if(!annees.includes(statsYear)) statsYear = annees[0] || statsYear;
+  const days = statsData.days.filter(d => '20'+d.date.slice(6,8) === statsYear);
 
+  // Une seule année à la fois. Les précédentes restent accessibles à côté.
   let filtreHTML = '';
   if(annees.length > 1){
     filtreHTML = '<div class="segmented" style="margin:0 4px 22px">'
-      + `<button class="seg-btn${statsYear==='all'?' active':''}" onclick="switchStatsYear('all')">Tout</button>`
       + annees.map(y=>`<button class="seg-btn${statsYear===y?' active':''}" onclick="switchStatsYear('${y}')">${y}</button>`).join('')
       + '</div>';
   }
 
   document.getElementById('statsSub').textContent =
-    `${days.length} jour${days.length>1?'s':''} tracké${days.length>1?'s':''} · ${statsYear==='all' ? annees.join(' — ') : statsYear}`;
+    `${days.length} jour${days.length>1?'s':''} tracké${days.length>1?'s':''} en ${statsYear}`;
 
   let ratesHTML = filtreHTML + '<div class="rate-card"><div class="section-label">Taux de réussite</div>';
 
@@ -1869,6 +1877,24 @@ setTimeout(()=>{
   console.warn('module cloud absent : démarrage hors ligne');
   finishBoot(false);
 }, 4000);
+
+/* DIAGNOSTIC TEMPORAIRE — à retirer une fois la nav calée.
+   Affiche les vraies mesures de l'appareil : impossible de les obtenir
+   autrement, aucun navigateur de bureau ne reproduit le mode standalone. */
+function majDiag(){
+  const el = document.getElementById('diag'); if(!el) return;
+  const cs = getComputedStyle(document.documentElement);
+  const app = document.querySelector('.app').getBoundingClientRect();
+  const nav = document.querySelector('.tab-bar').getBoundingClientRect();
+  const sab = cs.getPropertyValue('--safe-bottom').trim();
+  const gap = cs.getPropertyValue('--nav-gap').trim();
+  el.textContent =
+    `win ${window.innerHeight} · doc ${document.documentElement.clientHeight} · scr ${screen.height}\n` +
+    `app ${Math.round(app.height)} bas ${Math.round(app.bottom)} · nav bas ${Math.round(nav.bottom)}\n` +
+    `sous-nav ${Math.round(window.innerHeight - nav.bottom)} · safe-b ${sab} · gap ${gap} · standalone ${!!navigator.standalone}`;
+}
+setTimeout(majDiag, 600);
+window.addEventListener('resize', majDiag);
 
 // Demande au navigateur de ne pas évincer les données (Safari efface après 7 j d'inactivité)
 if(navigator.storage && navigator.storage.persist){
