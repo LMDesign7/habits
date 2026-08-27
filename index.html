@@ -855,6 +855,61 @@ function renderWeek() {
    ═══════════════════════════════════════════════════════════ */
 let habitsData = { days:{}, goals:{} };
 
+/* ═══════════════════════════════════════════════════════════
+   DÉCOUPAGE PAR ANNÉE
+   Un seul document de 73 Ko réécrit à chaque case cochée coûtait
+   147 Ko d'écriture Postgres (l'UPDATE + la copie d'archive).
+   Chaque année vit maintenant dans son propre seau : `habits_y2025`
+   est figé et ne repart jamais, seule l'année en cours circule.
+   Charge quotidienne : 73 Ko → ~30 Ko aujourd'hui, ~3 Ko en janvier.
+   ═══════════════════════════════════════════════════════════ */
+const HAB_Y = 'habits_y';
+const HAB_FIRST_YEAR = 2025;          // première année trackée
+
+function yearOfKey(k){ return '20' + k.slice(6,8); }   // "26.08.26" → "2026"
+
+/* La liste des années ne peut pas venir du seul localStorage : sur un
+   téléphone neuf il est vide, et on ne saurait pas qu'il faut aller
+   chercher 2025 dans le cloud. On balaie donc une plage fixe. */
+function habitYears(){
+  const set = new Set();
+  for(let y = HAB_FIRST_YEAR; y <= new Date().getFullYear(); y++) set.add(String(y));
+  for(let i=0; i<localStorage.length; i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith(HAB_Y)) set.add(k.slice(HAB_Y.length));
+  }
+  return [...set].sort();
+}
+
+function readBucket(y){
+  try { const b = JSON.parse(localStorage.getItem(HAB_Y+y) || 'null');
+        return (b && b.days) ? b : null; } catch(e){ return null; }
+}
+
+/* Découpe `habits_data` en seaux annuels. Comme pour la migration
+   précédente, la source n'est PAS supprimée : elle reste le filet. */
+function migrateToYearBuckets(){
+  if(localStorage.getItem('habits_split_at')) return false;
+  let src = null;
+  try { src = JSON.parse(localStorage.getItem('habits_data') || 'null'); } catch(e){}
+  if(!src || !src.days){ localStorage.setItem('habits_split_at', new Date().toISOString()); return false; }
+
+  const seaux = {};
+  for(const [k,v] of Object.entries(src.days)){
+    const y = yearOfKey(k);
+    (seaux[y] = seaux[y] || { days:{}, goals:{} }).days[k] = v;
+  }
+  const annees = Object.keys(seaux).sort();
+  const derniere = annees[annees.length-1];
+  if(derniere) seaux[derniere].goals = src.goals || {};
+
+  for(const [y,b] of Object.entries(seaux)) localStorage.setItem(HAB_Y+y, JSON.stringify(b));
+  localStorage.setItem('habits_split_at', new Date().toISOString());
+  localStorage.setItem('habits_split_years', annees.join(','));
+  console.log(`[découpage] ${annees.join(', ')} — habits_data conservé intact.`);
+  return true;
+}
+
 function migrateHabits(){
   if(localStorage.getItem('habits_data')) return false;   // déjà migré
   const days = {}, keys = [];
@@ -874,41 +929,75 @@ function migrateHabits(){
   return true;
 }
 
-function loadHabitsData(){
-  migrateHabits();
-  try { habitsData = JSON.parse(localStorage.getItem('habits_data')) || { days:{}, goals:{} }; }
-  catch(e){ habitsData = { days:{}, goals:{} }; }
-  if(!habitsData.days)  habitsData.days  = {};
-  if(!habitsData.goals) habitsData.goals = {};
-}
-function saveHabitsData(){
-  let json;
-  try { json = JSON.stringify(habitsData); localStorage.setItem('habits_data', json); }
-  catch(e){ console.error('écriture habits_data impossible', e); showSync('Sauvegarde impossible ✗','error'); return; }
-  if(!cloudCanPush()){ pushQueue.habits = true; return; }
-  if(json === lastPushed.habits) return;          // rien de neuf : on n'écrit pas 180 Ko pour rien
-  lastPushed.habits = json;
-  if(window.cloudHabits) window.cloudHabits.save(habitsData);
+/* Recompose la vue fusionnée que toute l'app utilise, à partir des seaux.
+   Le reste du code continue de manipuler `habitsData.days` sans savoir
+   que le stockage est découpé. */
+function reloadHabitsFromBuckets(){
+  habitsData = { days:{}, goals:{} };
+  const annees = habitYears();
+  annees.forEach(y=>{
+    const b = readBucket(y);
+    if(b) Object.assign(habitsData.days, b.days);
+  });
+  // Les objectifs vivent dans le seau de l'année en cours. S'il n'existe
+  // pas encore (1er janvier), on hérite de la dernière année connue.
+  const cur = String(new Date().getFullYear());
+  const courant = readBucket(cur);
+  if(courant && courant.goals && Object.keys(courant.goals).length){
+    habitsData.goals = courant.goals;
+  } else {
+    for(let i = annees.length - 1; i >= 0; i--){
+      const b = readBucket(annees[i]);
+      if(b && b.goals && Object.keys(b.goals).length){ habitsData.goals = b.goals; break; }
+    }
+  }
 }
 
-/* Remplace habitsData après une hydratation distante ou une restauration.
-   La forme est validée AVANT d'écrire : un {days:null} venu du distant
-   effaçait silencieusement 596 jours, sur le disque comme en mémoire. */
-function setHabitsData(d){
-  const ok = d && typeof d === 'object' && !Array.isArray(d)
-          && d.days && typeof d.days === 'object' && !Array.isArray(d.days);
+function loadHabitsData(){
+  migrateHabits();              // hab_* → habits_data (déjà fait, conservé)
+  migrateToYearBuckets();       // habits_data → habits_yAAAA
+  reloadHabitsFromBuckets();
+}
+
+/* Remplace les données d'UNE année (hydratation distante ou restauration). */
+function applyYearData(y, data){
+  const ok = data && typeof data === 'object' && !Array.isArray(data)
+          && data.days && typeof data.days === 'object' && !Array.isArray(data.days);
   if(!ok){
-    console.error('forme distante invalide (habitudes)', d);
+    console.error('forme distante invalide (année '+y+')', data);
     showSync('Données distantes illisibles ✗','error');
     return false;
   }
-  habitsData = d;
-  if(!habitsData.goals || typeof habitsData.goals !== 'object') habitsData.goals = {};
-  try { localStorage.setItem('habits_data', JSON.stringify(habitsData)); }
-  catch(e){ console.error(e); showSync('Sauvegarde impossible ✗','error'); }
+  try { localStorage.setItem(HAB_Y+y, JSON.stringify(data)); }
+  catch(e){ console.error(e); showSync('Sauvegarde impossible ✗','error'); return false; }
+  reloadHabitsFromBuckets();
   loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
   if(statsLoaded) loadStats();
   return true;
+}
+/* Recompose les seaux à partir de la vue fusionnée, écrit chacun en local,
+   et n'envoie au cloud QUE ceux dont le contenu a changé. Une année écoulée
+   produit un JSON identique à chaque fois : elle n'est jamais renvoyée. */
+function saveHabitsData(){
+  const seaux = {};
+  for(const [k,v] of Object.entries(habitsData.days)){
+    const y = yearOfKey(k);
+    (seaux[y] = seaux[y] || { days:{}, goals:{} }).days[k] = v;
+  }
+  const cur = String(new Date().getFullYear());
+  seaux[cur] = seaux[cur] || { days:{}, goals:{} };
+  seaux[cur].goals = habitsData.goals || {};
+
+  for(const [y, b] of Object.entries(seaux)){
+    let json;
+    try { json = JSON.stringify(b); localStorage.setItem(HAB_Y+y, json); }
+    catch(e){ console.error('écriture '+HAB_Y+y+' impossible', e); showSync('Sauvegarde impossible ✗','error'); return; }
+    if(!cloudCanPush()){ pushQueue.habits = true; continue; }
+    if(json === lastPushed.years[y]) continue;      // année inchangée : zéro octet envoyé
+    lastPushed.years[y] = json;
+    const store = window.cloudHabitYears && window.cloudHabitYears[y];
+    if(store) store.save(b);
+  }
 }
 
 function loadState() { state = habitsData.days[toSheetDate(selectedDate)] || {}; }
@@ -1001,11 +1090,13 @@ const pushQueue = { habits:false, todo:false };
    valeur dans app_state_history (le trigger d'archive) : 180 Ko de JSONB
    à compresser par coche. On ne renvoie donc jamais deux fois la même
    charge — un rendu ou un re-clic qui ne change rien ne coûte plus rien. */
-const lastPushed = { habits:null, todo:null };
+const lastPushed = { todo:null, years:{} };
 let conflictPayload = null, conflictChoice = null, conflictScope = null;
 let conflictQueue = [];
 
 function cloudCanPush(){ return cloudPushArmed && !conflictPayload; }
+// Mémorise ce qui vient d'être écrit côté distant, pour ne pas le renvoyer.
+function noteYearPushed(y, data){ lastPushed.years[y] = JSON.stringify(data); }
 
 // ─── Dates ───
 function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -1796,8 +1887,8 @@ function finishBoot(hasCloud){
   // ouvert de conflit. Sinon on repousserait le local par-dessus le distant
   // au moment même où l'on demande à l'utilisateur lequel garder.
   if(cloudPushArmed && !conflictPayload){
-    if(pushQueue.habits && window.cloudHabits) window.cloudHabits.save(habitsData);
-    if(pushQueue.todo   && window.cloudTodo)   window.cloudTodo.save(todo);
+    if(pushQueue.habits) saveHabitsData();      // recompose et n'envoie que ce qui a changé
+    if(pushQueue.todo && window.cloudTodo) window.cloudTodo.save(todo);
     pushQueue.habits = pushQueue.todo = false;
   }
   // En cas de conflit, la file est abandonnée : c'est applyConflictChoice
@@ -1823,6 +1914,7 @@ function openCloud(){
   document.getElementById('lastBackup').textContent = lb
     ? 'Dernière sauvegarde manuelle : ' + new Date(lb).toLocaleString('fr-FR')
     : 'Aucune sauvegarde manuelle pour l\'instant.';
+  if(window.buildHistoryYears) window.buildHistoryYears();
   if(window.cloudLoadHistory) window.cloudLoadHistory();
 }
 
@@ -1831,9 +1923,11 @@ function refreshCloudUI(){
   // bloquées en conflit depuis des jours avec un point vert à l'écran.
   // On remonte toujours le pire des deux états.
   const RANG = { error:5, conflict:4, offline:3, syncing:2, idle:1, synced:0 };
-  const a = (window.cloudHabits && window.cloudHabits.getState()) || { status:'offline', user:null };
-  const b = (window.cloudTodo   && window.cloudTodo.getState())   || { status:'offline', user:null };
-  const st = (RANG[a.status]||0) >= (RANG[b.status]||0) ? a : b;
+  const etats = Object.values(window.cloudHabitYears || {}).map(s=>s.getState());
+  if(window.cloudTodo) etats.push(window.cloudTodo.getState());
+  const st = etats.length
+    ? etats.reduce((pire,e)=> (RANG[e.status]||0) >= (RANG[pire.status]||0) ? e : pire)
+    : { status:'offline', user:null };
   const dots = [document.getElementById('cloudDotBig'), document.getElementById('cloudDotSettings'), document.getElementById('cloudDotBrand')];
   dots.forEach(d=>{ if(d) d.className = 'cloud-dot ' + st.status; });
 
@@ -1857,11 +1951,19 @@ function refreshCloudUI(){
 }
 
 /* ─── Conflit : on montre, on ne tranche pas ─── */
+function scopeStore(scope){
+  if(scope === 'todo') return window.cloudTodo;
+  return (window.cloudHabitYears || {})[scope.replace('habits-','')];
+}
+function scopeLabel(scope){
+  return scope === 'todo' ? 'tâches' : 'habitudes ' + scope.replace('habits-','');
+}
+
 function describe(scope, d){
-  if(scope === 'habits'){
+  if(scope !== 'todo'){
     const days = Object.keys(d && d.days || {}).length;
-    const goals = Object.keys(d && d.goals || {}).length;
-    return `${days} jour${days>1?'s':''} tracké${days>1?'s':''}<br>${goals} objectif${goals>1?'s':''}`;
+    const coches = Object.values(d && d.days || {}).reduce((n,o)=>n+Object.values(o||{}).filter(v=>v===1).length, 0);
+    return `${days} jour${days>1?'s':''} suivi${days>1?'s':''}<br>${coches} case${coches>1?'s':''} cochée${coches>1?'s':''}`;
   }
   const tasks = (d && d.tasks || []).filter(t=>!t.completedAt).length;
   const done  = (d && d.tasks || []).filter(t=>t.completedAt).length;
@@ -1877,7 +1979,7 @@ function showConflict(scope, conflict){
     return;
   }
   conflictPayload = conflict; conflictScope = scope; conflictChoice = null;
-  const label = scope === 'habits' ? 'habitudes' : 'tâches';
+  const label = scopeLabel(scope);
   document.querySelector('#conflictOverlay .modal-desc').textContent =
     `Tes ${label} diffèrent entre cet appareil et le cloud. Choisis laquelle garder — rien ne sera écrasé avant ton choix.`;
   document.getElementById('conflictCards').innerHTML = `
@@ -1904,7 +2006,8 @@ function pickConflict(c){
 async function applyConflictChoice(){
   if(!conflictChoice) return;
   const scope = conflictScope, choice = conflictChoice, payload = conflictPayload;
-  const store = scope === 'habits' ? window.cloudHabits : window.cloudTodo;
+  const store = scopeStore(scope);
+  if(!store){ showSync('Store introuvable ✗','error'); return; }
   const data   = choice === 'remote' ? payload.remote : payload.local;
   const perdue = choice === 'remote' ? payload.local  : payload.remote;
 
@@ -1931,7 +2034,12 @@ async function applyConflictChoice(){
   }
 
   conflictPayload = null; conflictChoice = null; conflictScope = null;
-  if(scope === 'habits') setHabitsData(data); else setTodoData(data);
+  if(scope === 'todo') setTodoData(data);
+  else {
+    const y = scope.replace('habits-','');
+    lastPushed.years[y] = JSON.stringify(data);   // évite un renvoi immédiat
+    applyYearData(y, data);
+  }
   document.getElementById('conflictOverlay').classList.remove('open');
   showSync('Version appliquée ✓','success');
 
@@ -2058,19 +2166,33 @@ import { createStore } from './cloud-store.js';
 const SUPABASE_URL = 'https://jeswhkztvduhhqmihlkj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_TQwDRZLXCZjVe59Qf0ykEQ_8a01A4F7';
 
-// Un projet, une table, un appId par app — comme le prescrit le doc.
-const habitsStore = createStore({
-  appId: 'habits',
-  supabaseUrl: SUPABASE_URL,
-  supabaseAnonKey: SUPABASE_ANON_KEY,
-  storageKey: 'habits_data',
-  isEmpty: d => !d || (Object.keys(d.days||{}).length === 0 && Object.keys(d.goals||{}).length === 0),
-  // 90 Ko par push : on laisse une routine du matin (10 coches d'affilée)
-  // se regrouper en une seule écriture au lieu de plusieurs. cloud-store
-  // force de toute façon l'envoi quand l'app passe en arrière-plan,
-  // donc rien n'est en attente une fois l'app fermée.
-  debounceMs: 12000,
-});
+/* Un store par année : appId 'habits-2025', 'habits-2026', …
+   L'ancien appId 'habits' n'est plus alimenté mais reste en base —
+   c'est un instantané figé des 596 jours, une sauvegarde de plus. */
+const habitYearStores = {};
+function makeYearStore(y){
+  const s = createStore({
+    appId: 'habits-' + y,
+    supabaseUrl: SUPABASE_URL,
+    supabaseAnonKey: SUPABASE_ANON_KEY,
+    storageKey: 'habits_y' + y,
+    isEmpty: d => !d || (Object.keys(d.days||{}).length === 0 && Object.keys(d.goals||{}).length === 0),
+    // Une routine du matin (10 coches d'affilée) se regroupe en un envoi.
+    // cloud-store force de toute façon l'envoi au passage en arrière-plan.
+    debounceMs: 10000,
+  });
+  // Une seule instance rafraîchit le jeton, sinon elles se le disputent.
+  try { s.supabase.auth.stopAutoRefresh(); } catch(e){}
+  return s;
+}
+
+const ANNEES = window.habitYears();
+ANNEES.forEach(y => { habitYearStores[y] = makeYearStore(y); });
+window.cloudHabitYears = habitYearStores;
+
+// L'année en cours porte l'état affiché et sert de référence par défaut.
+const anneeCourante = String(new Date().getFullYear());
+const habitsStore = habitYearStores[anneeCourante] || habitYearStores[ANNEES[ANNEES.length-1]];
 
 const todoStore = createStore({
   appId: 'habits-todo',
@@ -2103,7 +2225,7 @@ function watch(store, scope){
     }
   });
 }
-watch(habitsStore, 'habits');
+ANNEES.forEach(y => watch(habitYearStores[y], 'habits-' + y));
 watch(todoStore, 'todo');
 
 window.cloudLogin = async () => {
@@ -2112,8 +2234,12 @@ window.cloudLogin = async () => {
 };
 window.cloudLogout = async () => {
   // flush AVANT signOut, sinon la dernière modification ne part jamais.
-  await habitsStore.flush(); await todoStore.flush();
-  await habitsStore.signOut(); await todoStore.signOut();
+  try {
+    for(const y of ANNEES) await habitYearStores[y].flush();
+    await todoStore.flush();
+    for(const y of ANNEES) await habitYearStores[y].signOut();
+    await todoStore.signOut();
+  } catch(e){ console.error(e); window.showSync('Déconnexion incomplète ✗','error'); }
   window.refreshCloudUI();
   window.showSync('Déconnecté','');
 };
@@ -2121,11 +2247,11 @@ window.cloudLogout = async () => {
 /* L'historique existait côté serveur pour les DEUX apps, mais seule
    celle des tâches était atteignable. Les 596 jours d'habitudes — le
    seul jeu irremplaçable — étaient les seuls sans marche arrière. */
-let histScope = 'habits';
+let histScope = 'habits-' + anneeCourante;
 
 window.switchHistory = (s) => {
   histScope = s;
-  document.getElementById('histTabHabits').classList.toggle('active', s==='habits');
+  document.getElementById('histTabHabits').classList.toggle('active', s!=='todo');
   document.getElementById('histTabTodo').classList.toggle('active', s==='todo');
   window.cloudLoadHistory();
 };
@@ -2133,8 +2259,9 @@ window.switchHistory = (s) => {
 window.cloudLoadHistory = async () => {
   const el = document.getElementById('cloudHistory');
   if(!el) return;
-  const store = histScope === 'habits' ? habitsStore : todoStore;
-  const mot   = histScope === 'habits' ? 'habitudes' : 'tâches';
+  const store = window.scopeStore(histScope);
+  const mot   = window.scopeLabel(histScope);
+  if(!store){ el.innerHTML = '<div class="field-hint">Aucune sauvegarde pour cette période.</div>'; return; }
   el.innerHTML = '<div class="field-hint">Lecture…</div>';
   try {
     const rows = await store.history(10);
@@ -2151,31 +2278,50 @@ window.cloudLoadHistory = async () => {
 };
 
 window.cloudRestore = async (id, scope) => {
-  const mot = scope === 'habits' ? 'tes habitudes' : 'tes tâches';
-  if(!confirm(`Revenir à cette version de ${mot} ?\n\nLa version actuelle sera archivée — tu pourras revenir en arrière.`)) return;
-  const store = scope === 'habits' ? habitsStore : todoStore;
+  if(!confirm(`Revenir à cette version de ${window.scopeLabel(scope)} ?\n\nLa version actuelle sera archivée — tu pourras revenir en arrière.`)) return;
+  const store = window.scopeStore(scope);
+  if(!store) return;
   try {
     const data = await store.restore(id);
-    const ok = scope === 'habits' ? window.setHabitsData(data) : window.setTodoData(data);
+    let ok;
+    if(scope === 'todo') ok = window.setTodoData(data);
+    else {
+      const y = scope.replace('habits-','');
+      ok = window.applyYearData(y, data);
+      if(ok) window.noteYearPushed(y, data);
+    }
     if(!ok) return;                       // forme invalide : rien n'a été écrit
     window.showSync('Version restaurée ✓','success');
     window.cloudLoadHistory();
   } catch(e){ console.error(e); window.showSync('Restauration impossible ✗','error'); }
 };
 
+// Sélecteur d'année dans l'écran Sauvegarde
+window.buildHistoryYears = () => {
+  const t = document.getElementById('histTabHabits');
+  if(!t || ANNEES.length < 2) return;
+  t.textContent = 'Habitudes ' + histScope.replace('habits-','');
+  t.onclick = () => {
+    const i = ANNEES.indexOf(histScope.replace('habits-',''));
+    const suivante = ANNEES[(i + 1) % ANNEES.length];
+    window.switchHistory('habits-' + suivante);
+    t.textContent = 'Habitudes ' + suivante;
+  };
+};
+
 /* ─── Démarrage : local d'abord, cloud ensuite ─── */
 (async () => {
   try {
-    // Une seule instance rafraîchit le jeton : deux clients Supabase sur la
-    // même origine se disputent le refresh token et finissent par le griller.
-    try { habitsStore.supabase.auth.stopAutoRefresh(); } catch(e){}
-
     const user = await todoStore.currentUser();
 
     if(user){
-      const h = await habitsStore.hydrate();
-      if(h.conflict)                  window.showConflict('habits', h.conflict);
-      else if(h.applied === 'remote') window.setHabitsData(h.data);
+      // Chaque année est hydratée séparément. Sur un téléphone neuf, c'est
+      // ce qui va rechercher 2025 dans le cloud alors que rien n'est en local.
+      for(const y of ANNEES){
+        const r = await habitYearStores[y].hydrate();
+        if(r.conflict) window.showConflict('habits-' + y, r.conflict);
+        else if(r.applied === 'remote' && r.data) window.applyYearData(y, r.data);
+      }
 
       const t = await todoStore.hydrate();
       if(t.conflict)                  window.showConflict('todo', t.conflict);
