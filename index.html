@@ -62,10 +62,24 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;  /* le scroll ne "fuit" pas vers la page */
     padding-top: var(--safe-top);
-    /* Réserve la place de la pilule flottante : ~54px + décollement + respiration */
-    padding-bottom: calc(var(--nav-gap) + 96px);
+    /* Réserve la place de la pilule flottante (~72px) et du fondu */
+    padding-bottom: calc(var(--nav-gap) + 120px);
   }
   .app-scroll::-webkit-scrollbar { width: 0; }
+
+  /* Fondu de bas de page.
+     La pilule flotte, donc le contenu passe derrière elle ET réapparaît
+     dans l'espace qui la sépare du bord : une ligne d'habitude se retrouvait
+     tranchée en deux, avec un morceau visible dessous. Le contenu se dissout
+     désormais dans le fond avant d'atteindre la pilule, au lieu d'être coupé. */
+  .app::after {
+    content: '';
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: calc(var(--nav-gap) + 116px);
+    background: linear-gradient(to bottom, rgba(6,6,8,0) 0%, var(--bg) 58%);
+    pointer-events: none;
+    z-index: 90;
+  }
 
   /* ─── Nav pill flottante ─── */
   .tab-bar {
@@ -406,6 +420,9 @@
     transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
   }
   .fab.visible { display: flex; }
+  /* Le bouton monte 54px plus haut que la pilule : sans réserve
+     supplémentaire, il recouvrait la dernière ligne de tâches. */
+  #pageTasks { padding-bottom: 56px; }
   .fab:active { transform: scale(0.9); }
 
   /* Sélecteur de catégorie en chips */
