@@ -629,6 +629,11 @@
   </div>
 </div>
 
+<!-- REPÈRES TEMPORAIRES : montrent où le navigateur croit être le bas.
+     Lime = position:fixed bottom:0. Rouge = bas du viewport visuel. -->
+<div style="position:fixed;bottom:0;left:0;right:0;height:4px;background:#b8ff57;z-index:999;pointer-events:none"></div>
+<div id="repereVV" style="position:fixed;left:0;right:0;height:4px;background:#ff3b3b;z-index:999;pointer-events:none;display:none"></div>
+
 <div class="sync-bar" id="syncBar"><div class="sync-dot"></div><span id="syncText"></span></div>
 
 <!-- Modal catégorie -->
@@ -1888,13 +1893,25 @@ function majDiag(){
   const nav = document.querySelector('.tab-bar').getBoundingClientRect();
   const sab = cs.getPropertyValue('--safe-bottom').trim();
   const gap = cs.getPropertyValue('--nav-gap').trim();
+  const vv = window.visualViewport;
   el.textContent =
     `win ${window.innerHeight} · doc ${document.documentElement.clientHeight} · scr ${screen.height}\n` +
-    `app ${Math.round(app.height)} bas ${Math.round(app.bottom)} · nav bas ${Math.round(nav.bottom)}\n` +
-    `sous-nav ${Math.round(window.innerHeight - nav.bottom)} · safe-b ${sab} · gap ${gap} · standalone ${!!navigator.standalone}`;
+    `vv h ${vv?Math.round(vv.height):'—'} offY ${vv?Math.round(vv.offsetY):'—'} scale ${vv?vv.scale.toFixed(2):'—'} · dpr ${devicePixelRatio}\n` +
+    `nav bas ${Math.round(nav.bottom)} · sous-nav ${Math.round(window.innerHeight - nav.bottom)} · safe-b ${sab}`;
+
+  // Repère rouge au bas du viewport visuel, s'il diffère du viewport de mise en page
+  const r = document.getElementById('repereVV');
+  if(r && vv && Math.abs(vv.height + vv.offsetY - window.innerHeight) > 2){
+    r.style.display = 'block';
+    r.style.top = Math.round(vv.offsetY + vv.height - 4) + 'px';
+  }
 }
 setTimeout(majDiag, 600);
 window.addEventListener('resize', majDiag);
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', majDiag);
+  window.visualViewport.addEventListener('scroll', majDiag);
+}
 
 // Demande au navigateur de ne pas évincer les données (Safari efface après 7 j d'inactivité)
 if(navigator.storage && navigator.storage.persist){
