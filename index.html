@@ -8,7 +8,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Habits">
 <meta name="theme-color" content="#060608">
-<link rel="manifest" href="/manifest.json">
+<!-- PAS de manifest.json, volontairement. Quand il existe, iOS le fait
+     primer sur les meta Apple, et son display:standalone réserve 59pt de
+     chrome — c'était LA cause de la bande sous la nav (viewport 873/932).
+     Mon Budget, sans manifest, tourne en plein écran 932 sur le même
+     téléphone : on s'aligne sur cette config prouvée. L'icône reste. -->
 <link rel="apple-touch-icon" href="/icon-180.png">
 <title>Habits</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -1867,7 +1871,7 @@ document.getElementById('goalsOverlay').addEventListener('click', e => {
    coup d'œil si le téléphone affiche bien la dernière version déployée,
    ou une copie en cache — ce qui a coûté une soirée de corrections à
    l'aveugle sur la nav. À incrémenter à chaque déploiement. */
-const APP_VERSION = '28.08 — 9h';
+const APP_VERSION = '28.08 — 9h15';
 /* Les deux chiffres après la version mesurent le viewport réel :
    « 932/932 » = l'app occupe tout l'écran, « 873/932 » = iOS ampute
    59pt en bas (bug WebKit 301994) et la bande sous la nav vient de là.
