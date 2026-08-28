@@ -275,6 +275,13 @@
   .sub-item.done .s-name { color: var(--text-dim); text-decoration: line-through; }
   .s-del { color: var(--text-dim); opacity: 0.4; padding: 4px; }
 
+  .date-head {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 14px 10px 8px;
+  }
+  .date-head:first-child { padding-top: 2px; }
+
   /* Ajout inline */
   .add-row { display: flex; align-items: center; gap: 13px; padding: 13px 18px; margin: 2px 16px 0; border-radius: var(--radius); cursor: text; transition: background 0.2s; }
   .add-row:active { background: var(--surface); }
@@ -644,10 +651,12 @@
     </div>
     <div class="field-group">
       <label class="field-label">Quand</label>
-      <div class="chips">
-        <div class="chip selected" id="ntWhenToday" onclick="pickWhen(true)">Aujourd'hui</div>
-        <div class="chip" id="ntWhenLater" onclick="pickWhen(false)">Plus tard</div>
+      <div class="chips" style="margin-bottom:10px">
+        <div class="chip selected" id="ntWToday" onclick="pickNtWhen('today')">Aujourd'hui</div>
+        <div class="chip" id="ntWTomorrow" onclick="pickNtWhen('tomorrow')">Demain</div>
+        <div class="chip" id="ntWNone" onclick="pickNtWhen('none')">Sans date</div>
       </div>
+      <input class="field-input" type="date" id="ntDate" style="color-scheme:dark" onchange="pickNtWhen('custom')">
     </div>
     <button class="save-btn" onclick="saveNewTask()">Ajouter</button>
   </div>
@@ -687,6 +696,11 @@
     <div class="field-group">
       <label class="field-label">Catégorie</label>
       <select class="hm-select" id="taskCatSelect" style="width:100%"></select>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Date</label>
+      <input class="field-input" type="date" id="editDate" style="color-scheme:dark">
+      <div class="field-hint">Laisser vide = sans date (la tâche reste dans sa catégorie).</div>
     </div>
     <div class="field-group">
       <label class="field-label">Nouvelle sous-tâche</label>
@@ -1289,16 +1303,35 @@ function subRowHTML(s){
   </div>`;
 }
 
+function dateLabel(k){
+  if(k === todayKey()) return "Aujourd'hui";
+  if(k === keyPlusJours(1)) return 'Demain';
+  const d = new Date(k+'T00:00:00');
+  return JOURS[d.getDay()].charAt(0).toUpperCase()+JOURS[d.getDay()].slice(1)+' '+d.getDate()+' '+MOIS[d.getMonth()];
+}
+
 function renderTodayView(){
   const list = document.getElementById('todayList');
-  const tasks = todayTasks();
+  // Agenda : TOUTES les tâches datées, groupées par date croissante.
+  // Le report automatique ramène déjà le passé sur aujourd'hui.
+  const tasks = todo.tasks
+    .filter(x=>!x.parentId && !x.completedAt && x.scheduledFor)
+    .sort((a,b)=> a.scheduledFor===b.scheduledFor ? a.order-b.order : (a.scheduledFor<b.scheduledFor?-1:1));
   if(tasks.length === 0){
     const anyToday = doneTodayTasks().length > 0;
     list.innerHTML = anyToday
       ? `<div class="empty celebrate"><div class="empty-emoji">✓</div><div class="empty-title">Tout est fait</div><div class="empty-sub">Rien d'autre pour aujourd'hui.<br>Profites-en.</div></div>`
       : `<div class="empty"><div class="empty-emoji">◦</div><div class="empty-title">Rien pour aujourd'hui</div><div class="empty-sub">Appuie sur le bouton vert pour ajouter,<br>ou pioche dans tes catégories.</div></div>`;
   } else {
-    list.innerHTML = tasks.map(t=>taskRowHTML(t,{showCat:true, scope:'t'})).join('');
+    let html = '', cur = null;
+    tasks.forEach(task=>{
+      if(task.scheduledFor !== cur){
+        cur = task.scheduledFor;
+        html += `<div class="date-head">${dateLabel(cur)}</div>`;
+      }
+      html += taskRowHTML(task,{showCat:true, scope:'t'});
+    });
+    list.innerHTML = html;
   }
   const done = doneTodayTasks();
   document.getElementById('doneLabel').textContent = `Terminé aujourd'hui · ${done.length}`;
@@ -1326,10 +1359,6 @@ function renderCatsView(){
       </div>
       <div class="cat-body">
         ${tasks.length ? tasks.map(t=>taskRowHTML(t,{showToday:true, scope:'c'})).join('') : `<div class="empty" style="padding:20px"><div class="empty-sub">Rien dans ${escapeHtml(c.name)} pour l'instant.</div></div>`}
-        <div class="add-row" style="margin-left:0;margin-right:0" onclick="event.stopPropagation();this.querySelector('input').focus()">
-          <div class="add-plus"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
-          <input class="add-input" placeholder="Ajouter dans ${escapeHtml(c.name)}" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')addTaskInCat(this,'${c.id}')">
-        </div>
       </div>
     </div>`;
   }).join('');
@@ -1339,8 +1368,8 @@ function updateTodoCounts(){
   const n = todayTasks().length;
   // « tout est fait » seulement si quelque chose a réellement été fait.
   document.getElementById('todoSub').textContent =
-    n>0 ? `${n} tâche${n>1?'s':''} restante${n>1?'s':''}`
-        : (doneTodayTasks().length ? 'tout est fait' : 'rien pour aujourd\'hui');
+    n>0 ? `${n} tâche${n>1?'s':''} aujourd'hui`
+        : (doneTodayTasks().length ? 'tout est fait pour aujourd\'hui' : 'rien de prévu aujourd\'hui');
   const badge = document.getElementById('tabBadge');
   badge.textContent = n;
   badge.classList.toggle('visible', n>0);
@@ -1418,7 +1447,7 @@ function undoDone(){
    L'ajout inline reste dans chaque catégorie, où le contexte donne
    déjà la réponse. Ici on choisit explicitement — plus d'atterrissage
    silencieux dans la première catégorie venue. */
-let ntCatId = null, ntToday = true;
+let ntCatId = null, ntWhen = 'today';
 
 function openNewTask(){
   if(!todo.cats.length){ alert('Crée d\'abord une catégorie dans l\'onglet Catégories.'); return; }
@@ -1426,9 +1455,9 @@ function openNewTask(){
   const ouverte = document.querySelector('#viewCats .cat-block.open');
   const surCats = document.getElementById('viewCats').style.display !== 'none';
   ntCatId = (surCats && ouverte) ? ouverte.id.replace('cat-','') : todo.cats[0].id;
-  ntToday = !surCats;                       // depuis Aujourd'hui → daté du jour
   document.getElementById('ntTitle').value = '';
-  renderNtCats(); pickWhen(ntToday);
+  document.getElementById('ntDate').value = '';
+  renderNtCats(); pickNtWhen(surCats ? 'none' : 'today');
   document.getElementById('newTaskOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('ntTitle').focus(), 350);
 }
@@ -1440,43 +1469,41 @@ function renderNtCats(){
      </div>`).join('');
 }
 function pickNtCat(id){ ntCatId = id; renderNtCats(); }
-function pickWhen(t){
-  ntToday = t;
-  document.getElementById('ntWhenToday').classList.toggle('selected', t);
-  document.getElementById('ntWhenLater').classList.toggle('selected', !t);
+function keyPlusJours(n){
+  const d = new Date(); d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function pickNtWhen(w){
+  ntWhen = w;
+  document.getElementById('ntWToday').classList.toggle('selected', w==='today');
+  document.getElementById('ntWTomorrow').classList.toggle('selected', w==='tomorrow');
+  document.getElementById('ntWNone').classList.toggle('selected', w==='none');
+  if(w!=='custom') document.getElementById('ntDate').value = '';
+}
+function ntResolvedDate(){
+  if(ntWhen==='today') return todayKey();
+  if(ntWhen==='tomorrow') return keyPlusJours(1);
+  if(ntWhen==='custom') return document.getElementById('ntDate').value || null;
+  return null;
 }
 
 function saveNewTask(){
   const v = document.getElementById('ntTitle').value.trim();
   if(!v){ document.getElementById('ntTitle').focus(); return; }
-  const t = todayKey();
+  const dte = ntResolvedDate();
   todo.tasks.push({
     id:uid(), catId:ntCatId, parentId:null, title:v,
-    scheduledFor: ntToday ? t : null,
-    firstScheduledFor: ntToday ? t : null,
+    scheduledFor: dte, firstScheduledFor: dte,
     completedAt:null, order:Date.now(), createdAt:new Date().toISOString()
   });
   saveTodo();
   document.getElementById('newTaskOverlay').classList.remove('open');
   renderTodo();
   const cat = getCat(ntCatId);
-  showSync(ntToday ? 'Ajoutée à aujourd\'hui ✓' : `Ajoutée dans ${cat?cat.name:''} ✓`, 'success');
+  showSync(dte ? `Prévue ${dateLabel(dte).toLowerCase()} ✓` : `Ajoutée dans ${cat?cat.name:''} ✓`, 'success');
   if(navigator.vibrate) navigator.vibrate(10);
 }
 
-function addTaskInCat(input, catId){
-  const v = input.value.trim(); if(!v) return;
-  todo.tasks.push({ id:uid(), catId, parentId:null, title:v, scheduledFor:null, firstScheduledFor:null, completedAt:null, order:Date.now(), createdAt:new Date().toISOString() });
-  saveTodo(); input.value = ''; renderTodo();
-  const bloc = document.getElementById('cat-'+catId);
-  if(bloc){
-    bloc.classList.add('open');
-    // renderTodo() a détruit le champ : sans ce re-focus, le clavier se
-    // referme et on ne peut pas enchaîner deux tâches d'affilée.
-    const champ = bloc.querySelector('.add-input');
-    if(champ) champ.focus();
-  }
-}
 
 // Le geste porte la métadonnée : un tap sur l'icône calendrier planifie pour aujourd'hui
 function toggleScheduleToday(id){
@@ -1555,6 +1582,7 @@ function openTaskModal(id){
   const roll = rollDays(t);
   document.getElementById('taskModalSub').textContent = roll>0 ? `Reportée depuis ${roll} jour${roll>1?'s':''}.` : 'Titre, catégorie, sous-tâches.';
   const si = document.getElementById('subInput'); if(si) si.value='';
+  document.getElementById('editDate').value = t.scheduledFor || '';
   document.getElementById('taskCatSelect').innerHTML = todo.cats.map(c=>
     `<option value="${c.id}"${c.id===t.catId?' selected':''}>${escapeHtml(c.name)}</option>`
   ).join('');
@@ -1565,6 +1593,11 @@ function saveTaskEdit(){
   const v = document.getElementById('taskTitleInput').value.trim();
   if(v) t.title = v;
   t.catId = document.getElementById('taskCatSelect').value;
+  const nd = document.getElementById('editDate').value || null;
+  if(nd !== t.scheduledFor){
+    t.scheduledFor = nd;
+    t.firstScheduledFor = nd;   // nouvelle date = nouveau cycle, le ·N repart
+  }
   saveTodo(); document.getElementById('taskOverlay').classList.remove('open'); renderTodo();
 }
 /* Remplace l'ancien prompt() système — hors DA, et peu fiable en PWA. */
@@ -1876,7 +1909,7 @@ document.getElementById('goalsOverlay').addEventListener('click', e => {
    coup d'œil si le téléphone affiche bien la dernière version déployée,
    ou une copie en cache — ce qui a coûté une soirée de corrections à
    l'aveugle sur la nav. À incrémenter à chaque déploiement. */
-const APP_VERSION = '28.08 — 11h';
+const APP_VERSION = '28.08 — 11h30';
 /* Les deux chiffres après la version mesurent le viewport réel :
    « 932/932 » = l'app occupe tout l'écran, « 873/932 » = iOS ampute
    59pt en bas (bug WebKit 301994) et la bande sous la nav vient de là.
