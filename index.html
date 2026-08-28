@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- `default` et non `black-translucent` : la doc Apple place alors la
+     fenêtre SOUS la barre de statut, jusqu'au bas physique de l'écran —
+     c'est ce qui supprime la bande morte de 59pt en bas (WebKit 301994).
+     black-translucent est de toute façon déprécié. La barre opaque prend
+     la couleur de theme-color : noir sur app noire, invisible. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Habits">
 <meta name="theme-color" content="#060608">
 <!-- PAS de manifest.json, volontairement. Quand il existe, iOS le fait
@@ -33,7 +38,7 @@
     --red: #ff6b6b;
     --radius: 18px;
     --radius-pill: 999px;
-    --safe-top: env(safe-area-inset-top, 20px);
+    --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     /* Mesuré sur captures côte à côte : la nav de Mon Budget est à ~8pt du
        bord, l'indicateur d'accueil passe par-dessus la pilule — c'est le
@@ -1871,7 +1876,7 @@ document.getElementById('goalsOverlay').addEventListener('click', e => {
    coup d'œil si le téléphone affiche bien la dernière version déployée,
    ou une copie en cache — ce qui a coûté une soirée de corrections à
    l'aveugle sur la nav. À incrémenter à chaque déploiement. */
-const APP_VERSION = '28.08 — 9h15';
+const APP_VERSION = '28.08 — 10h';
 /* Les deux chiffres après la version mesurent le viewport réel :
    « 932/932 » = l'app occupe tout l'écran, « 873/932 » = iOS ampute
    59pt en bas (bug WebKit 301994) et la bande sous la nav vient de là.
@@ -1883,6 +1888,37 @@ function majVersion(){
 }
 majVersion();
 window.addEventListener('resize', majVersion);
+
+/* Contournement du viewport amputé (WebKit 301994, présent jusque dans
+   l'iOS de Lucas à jour — vérifié le 28/08 sur raccourci neuf) : quand
+   iOS retire ~59pt en bas, on colle la pilule au ras du viewport réel.
+   On ne récupère pas la bande système — rien ne le peut — mais on ne
+   lui ajoute pas nos 10px par-dessus. Safari et desktop, non affectés,
+   gardent leur décollement normal. */
+/* « Heal flip » — WebKit garde parfois un viewport amputé alors qu'il
+   sait rendre la pleine hauteur : masquer/réafficher l'élément plein
+   viewport avec un reflow synchrone entre les deux force la re-mesure.
+   Source : dev.to/cederhook, mêmes mesures que les nôtres (932→873). */
+let maxVH = window.innerHeight;
+function healViewport(){
+  maxVH = Math.max(maxVH, window.innerHeight);
+  if(maxVH - window.innerHeight <= 4) return;
+  const el = document.querySelector('.app'); if(!el) return;
+  el.style.display = 'none';
+  void el.offsetHeight;            // reflow synchrone obligatoire
+  el.style.display = '';
+}
+window.addEventListener('load', healViewport);
+window.addEventListener('orientationchange', ()=>setTimeout(healViewport, 250));
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) setTimeout(healViewport, 150); });
+document.addEventListener('focusout', ()=>setTimeout(healViewport, 140));
+
+function ajusterNav(){
+  const ampute = navigator.standalone && (screen.height - window.innerHeight) > 40;
+  document.documentElement.style.setProperty('--nav-gap', ampute ? '2px' : '10px');
+}
+ajusterNav();
+window.addEventListener('resize', ajusterNav);
 console.log('Habits ' + APP_VERSION);
 
 loadHabitsData();
