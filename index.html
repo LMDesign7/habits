@@ -1876,7 +1876,7 @@ document.getElementById('goalsOverlay').addEventListener('click', e => {
    coup d'œil si le téléphone affiche bien la dernière version déployée,
    ou une copie en cache — ce qui a coûté une soirée de corrections à
    l'aveugle sur la nav. À incrémenter à chaque déploiement. */
-const APP_VERSION = '28.08 — 10h45';
+const APP_VERSION = '28.08 — 11h';
 /* Les deux chiffres après la version mesurent le viewport réel :
    « 932/932 » = l'app occupe tout l'écran, « 873/932 » = iOS ampute
    59pt en bas (bug WebKit 301994) et la bande sous la nav vient de là.
@@ -2304,9 +2304,13 @@ const todoStore = proteger(createStore({
   supabaseUrl: SUPABASE_URL,
   supabaseAnonKey: SUPABASE_ANON_KEY,
   storageKey: 'todo_data',
-  // Les catégories seules ne sont pas une donnée : trois catégories vides
-  // ne doivent jamais pouvoir écraser un vrai jeu de tâches distant.
-  isEmpty: d => !d || (d.tasks||[]).length === 0,
+  // Une catégorie SANS tâche est une donnée : l'ancienne définition
+  // (tasks seul) la déclarait « vide », donc jamais envoyée au cloud —
+  // et au relancement, « le distant fait foi » l'écrasait. Deux catégories
+  // de Lucas ont disparu comme ça. Le danger initial (les 3 catégories
+  // d'exemple écrasant le cloud) n'existe plus : le semis n'appelle
+  // jamais save() et ne tourne qu'après l'hydratation.
+  isEmpty: d => !d || ((d.tasks||[]).length === 0 && (d.cats||[]).length === 0),
   debounceMs: 6000,
 }), 'habits-todo');
 
