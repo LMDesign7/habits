@@ -1867,8 +1867,18 @@ document.getElementById('goalsOverlay').addEventListener('click', e => {
    coup d'œil si le téléphone affiche bien la dernière version déployée,
    ou une copie en cache — ce qui a coûté une soirée de corrections à
    l'aveugle sur la nav. À incrémenter à chaque déploiement. */
-const APP_VERSION = '27.08 — 21h';
-document.getElementById('appVersion').textContent = APP_VERSION;
+const APP_VERSION = '28.08 — 9h';
+/* Les deux chiffres après la version mesurent le viewport réel :
+   « 932/932 » = l'app occupe tout l'écran, « 873/932 » = iOS ampute
+   59pt en bas (bug WebKit 301994) et la bande sous la nav vient de là.
+   Diagnostic permanent : plus jamais une soirée à corriger à l'aveugle. */
+function majVersion(){
+  const el = document.getElementById('appVersion'); if(!el) return;
+  el.textContent = APP_VERSION + ' · ' + window.innerHeight + '/' + screen.height
+    + (navigator.standalone ? ' · installée' : ' · Safari');
+}
+majVersion();
+window.addEventListener('resize', majVersion);
 console.log('Habits ' + APP_VERSION);
 
 loadHabitsData();
