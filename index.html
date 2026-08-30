@@ -1008,7 +1008,7 @@ function applyYearData(y, data){
     showSync('Données distantes illisibles ✗','error');
     return false;
   }
-  try { localStorage.setItem(HAB_Y+y, JSON.stringify(data)); }
+  try { data = canon(data); localStorage.setItem(HAB_Y+y, JSON.stringify(data)); }
   catch(e){ console.error(e); showSync('Sauvegarde impossible ✗','error'); return false; }
   reloadHabitsFromBuckets();
   loadState(); renderHeader(); renderWeek(); renderHabits(); updateProgress();
@@ -1019,7 +1019,7 @@ function applyYearData(y, data){
    et n'envoie au cloud QUE ceux dont le contenu a changé. Une année écoulée
    produit un JSON identique à chaque fois : elle n'est jamais renvoyée. */
 function saveHabitsData(){
-  const seaux = {};
+  let seaux = {};
   for(const [k,v] of Object.entries(habitsData.days)){
     const y = yearOfKey(k);
     (seaux[y] = seaux[y] || { days:{}, goals:{} }).days[k] = v;
@@ -1027,6 +1027,7 @@ function saveHabitsData(){
   const cur = String(new Date().getFullYear());
   seaux[cur] = seaux[cur] || { days:{}, goals:{} };
   seaux[cur].goals = habitsData.goals || {};
+  seaux = canon(seaux);
 
   for(const [y, b] of Object.entries(seaux)){
     let json;
@@ -1129,6 +1130,23 @@ let conflictPayload = null, conflictChoice = null, conflictScope = null;
 let conflictQueue = [];
 
 function cloudCanPush(){ return cloudPushArmed && !conflictPayload; }
+
+/* Postgres (jsonb) réordonne les clés d'un objet : longueur croissante,
+   puis ordre binaire. La détection de conflit compare du TEXTE brut, donc
+   un simple aller-retour serveur faisait diverger local et distant sans
+   qu'une seule valeur diffère — d'où la modale « Deux versions » chaque
+   jour après la première coche. On sérialise localement dans l'ordre
+   exact de Postgres : le texte redevient stable au caractère près. */
+function canon(v){
+  if(Array.isArray(v)) return v.map(canon);
+  if(v && typeof v === 'object'){
+    const o = {};
+    Object.keys(v).sort((a,b)=> a.length - b.length || (a<b?-1:a>b?1:0))
+      .forEach(k=>{ o[k] = canon(v[k]); });
+    return o;
+  }
+  return v;
+}
 // Mémorise ce qui vient d'être écrit côté distant, pour ne pas le renvoyer.
 function noteYearPushed(y, data){ lastPushed.years[y] = JSON.stringify(data); }
 
@@ -1164,7 +1182,7 @@ function seedTodoDefaults(){
 
 function saveTodo(){
   let json;
-  try { json = JSON.stringify(todo); localStorage.setItem('todo_data', json); }
+  try { todo = canon(todo); json = JSON.stringify(todo); localStorage.setItem('todo_data', json); }
   catch(e){ console.error('écriture todo_data impossible', e); showSync('Sauvegarde impossible ✗','error'); return; }
   if(!cloudCanPush()){ pushQueue.todo = true; return; }
   if(json === lastPushed.todo) return;
@@ -1181,7 +1199,7 @@ function setTodoData(d){
     showSync('Données distantes illisibles ✗','error');
     return false;
   }
-  todo = d;
+  todo = canon(d);
   try { localStorage.setItem('todo_data', JSON.stringify(todo)); }
   catch(e){ console.error(e); showSync('Sauvegarde impossible ✗','error'); }
   renderTodo();
@@ -1909,7 +1927,7 @@ document.getElementById('goalsOverlay').addEventListener('click', e => {
    coup d'œil si le téléphone affiche bien la dernière version déployée,
    ou une copie en cache — ce qui a coûté une soirée de corrections à
    l'aveugle sur la nav. À incrémenter à chaque déploiement. */
-const APP_VERSION = '28.08 — 11h30';
+const APP_VERSION = '28.08 — 12h';
 /* Les deux chiffres après la version mesurent le viewport réel :
    « 932/932 » = l'app occupe tout l'écran, « 873/932 » = iOS ampute
    59pt en bas (bug WebKit 301994) et la bande sous la nav vient de là.
@@ -2072,6 +2090,19 @@ function describe(scope, d){
 }
 
 function showConflict(scope, conflict){
+  // Faux conflit : même contenu, ordre de clés différent. Se résout seul,
+  // en gardant la version du cloud (identique par définition).
+  if(JSON.stringify(canon(conflict.local)) === JSON.stringify(canon(conflict.remote))){
+    const st = scopeStore(scope);
+    if(st){
+      st.resolveConflict('remote', conflict.remote)
+        .then(()=>{ if(scope==='todo') setTodoData(conflict.remote);
+                    else applyYearData(scope.replace('habits-',''), conflict.remote);
+                    refreshCloudUI(); })
+        .catch(e=>console.error(e));
+    }
+    return;
+  }
   // Deux conflits peuvent arriver coup sur coup (habitudes puis tâches).
   // Sans file, le second écrasait le premier et le store restait bloqué.
   if(conflictPayload){
